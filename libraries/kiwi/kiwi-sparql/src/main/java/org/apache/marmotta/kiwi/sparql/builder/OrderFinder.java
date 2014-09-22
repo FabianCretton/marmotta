@@ -15,13 +15,42 @@
  * limitations under the License.
  */
 
-package org.apache.marmotta.kiwi.sparql.persistence;
+package org.apache.marmotta.kiwi.sparql.builder;
+
+import org.openrdf.query.algebra.*;
+import org.openrdf.query.algebra.helpers.QueryModelVisitorBase;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
-* Operand types for operations - used for implicit type coercion.
+* Find the offset and limit values in a tuple expression
 *
 * @author Sebastian Schaffert (sschaffert@apache.org)
 */
-enum OPTypes {
-    STRING, DOUBLE, INT, DATE, BOOL, ANY
+public class OrderFinder extends QueryModelVisitorBase<RuntimeException> {
+
+    List<OrderElem> elements = new ArrayList<>();
+
+    public OrderFinder(TupleExpr expr) {
+        expr.visit(this);
+    }
+
+    @Override
+    public void meet(Order node) throws RuntimeException {
+        elements.addAll(node.getElements());
+    }
+
+
+
+    @Override
+    public void meet(Projection node) throws RuntimeException {
+        // stop at projection, subquery
+    }
+
+    @Override
+    public void meet(Union node) throws RuntimeException {
+        // stop at projection, subquery
+    }
+
 }
