@@ -27,6 +27,7 @@ import org.apache.marmotta.commons.sesame.model.StatementCommons;
 import org.apache.marmotta.commons.vocabulary.FOAF;
 import org.apache.marmotta.kiwi.config.KiWiConfiguration;
 import org.apache.marmotta.kiwi.sail.KiWiStore;
+import org.apache.marmotta.kiwi.sparql.function.NativeFunctionRegistry;
 import org.apache.marmotta.kiwi.sparql.sail.KiWiSparqlSail;
 import org.apache.marmotta.kiwi.test.junit.KiWiDatabaseRunner;
 import org.apache.marmotta.kiwi.vocabulary.FN_MARMOTTA;
@@ -264,6 +265,73 @@ public class KiWiSparqlJoinTest {
         testQuery("query21.sparql");
     }
 
+    // order by
+    @Test
+    public void testQuery24() throws Exception {
+        testQuery("query24.sparql");
+    }
+
+
+    // simple group by
+    @Test
+    public void testQuery25() throws Exception {
+        testQuery("query25.sparql");
+    }
+
+    // bind/coalesce
+    @Test
+    public void testQuery27() throws Exception {
+        testQuery("query27.sparql");
+    }
+
+
+    // simple union
+    @Test
+    public void testQuery26() throws Exception {
+        testQuery("query26.sparql");
+    }
+
+    // union with bind
+    @Test
+    public void testQuery28() throws Exception {
+        testQuery("query28.sparql");
+    }
+
+
+    // union with bind and order by
+    @Test
+    public void testQuery29() throws Exception {
+        testQuery("query29.sparql");
+    }
+
+
+
+    // bind with order by
+    @Test
+    public void testQuery30() throws Exception {
+        testQuery("query30.sparql");
+    }
+
+
+    // subquery with outer order by
+    @Test
+    public void testQuery31() throws Exception {
+        testQuery("query31.sparql");
+    }
+
+    // minus
+    @Test
+    public void testQuery32() throws Exception {
+        testQuery("query32.sparql");
+    }
+
+    // not exists
+    @Test
+    public void testQuery33() throws Exception {
+        testQuery("query33.sparql");
+    }
+
+
     // INSERT/UPDATE
     @Test
     public void testUpdate01() throws Exception {
@@ -274,7 +342,7 @@ public class KiWiSparqlJoinTest {
     // fulltext search filter
     @Test
     public void testQuery22() throws Exception {
-        Assume.assumeTrue(dbConfig.getDialect().isFunctionSupported(FN_MARMOTTA.SEARCH_FULLTEXT));
+        Assume.assumeTrue(NativeFunctionRegistry.getInstance().get(FN_MARMOTTA.SEARCH_FULLTEXT).isSupported(dbConfig.getDialect()));
         String queryString = IOUtils.toString(this.getClass().getResourceAsStream("query22.sparql"), "UTF-8");
 
         RepositoryConnection con1 = repository.getConnection();
@@ -303,7 +371,7 @@ public class KiWiSparqlJoinTest {
     // fulltext query filter
     @Test
     public void testQuery23() throws Exception {
-        Assume.assumeTrue(dbConfig.getDialect().isFunctionSupported(FN_MARMOTTA.SEARCH_FULLTEXT));
+        Assume.assumeTrue(NativeFunctionRegistry.getInstance().get(FN_MARMOTTA.SEARCH_FULLTEXT).isSupported(dbConfig.getDialect()));
         String queryString = IOUtils.toString(this.getClass().getResourceAsStream("query23.sparql"), "UTF-8");
 
         RepositoryConnection con1 = repository.getConnection();
@@ -356,8 +424,7 @@ public class KiWiSparqlJoinTest {
             Assert.assertTrue(result1.hasNext());
 
 
-
-            compareResults(result1,result2);
+            compareResults(result1, result2);
 
         } catch(RepositoryException ex) {
             con1.rollback();

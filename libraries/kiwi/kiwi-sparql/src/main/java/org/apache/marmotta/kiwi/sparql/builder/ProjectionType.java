@@ -15,32 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.marmotta.kiwi.sparql.persistence;
-
-import org.openrdf.query.algebra.StatementPattern;
-import org.openrdf.query.algebra.TupleExpr;
-import org.openrdf.query.algebra.helpers.QueryModelVisitorBase;
-
-import java.util.ArrayList;
-import java.util.List;
+package org.apache.marmotta.kiwi.sparql.builder;
 
 /**
-* Collect all statement patterns in a tuple expression.
-*
-* @author Sebastian Schaffert (sschaffert@apache.org)
-*/
-class PatternCollector extends QueryModelVisitorBase<RuntimeException> {
-
-    List<StatementPattern> patterns = new ArrayList<>();
-
-    PatternCollector(TupleExpr expr) {
-        expr.visit(this);
-    }
-
-    @Override
-    public void meet(StatementPattern node) throws RuntimeException {
-        patterns.add(node);
-
-        super.meet(node);
-    }
+ * Add file description here!
+ *
+ * @author Sebastian Schaffert (sschaffert@apache.org)
+ */
+public enum ProjectionType {
+    NODE, URI, STRING, INT, DOUBLE, DATE, NONE
 }
