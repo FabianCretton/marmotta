@@ -15,33 +15,48 @@
  * limitations under the License.
  */
 
-package org.apache.marmotta.kiwi.sparql.persistence;
+package org.apache.marmotta.kiwi.sparql.builder;
 
-import org.openrdf.query.algebra.Distinct;
-import org.openrdf.query.algebra.Reduced;
-import org.openrdf.query.algebra.TupleExpr;
+import org.openrdf.query.algebra.*;
 import org.openrdf.query.algebra.helpers.QueryModelVisitorBase;
 
 /**
-* Find distinct/reduced in a tuple expression.
-*
-* @author Sebastian Schaffert (sschaffert@apache.org)
-*/
-class DistinctFinder extends QueryModelVisitorBase<RuntimeException> {
+ * Check if a variable is used as a condition somewhere and therefore needs to be resolved.
+ *
+ * @author Sebastian Schaffert (sschaffert@apache.org)
+ */
+public class ConditionFinder extends QueryModelVisitorBase<RuntimeException> {
 
-    boolean distinct = false;
+    boolean found = false;
 
-    DistinctFinder(TupleExpr expr) {
+    private String varName;
+
+    public ConditionFinder(String varName, TupleExpr expr) {
+        this.varName = varName;
+
+        expr.visit(this);
+    }
+
+    public ConditionFinder(String varName, ValueExpr expr) {
+        this.varName = varName;
+
         expr.visit(this);
     }
 
     @Override
-    public void meet(Distinct node) throws RuntimeException {
-        distinct = true;
+    public void meet(Var node) throws RuntimeException {
+        if(!found) {
+            found = node.getName().equals(varName);
+        }
     }
 
     @Override
-    public void meet(Reduced node) throws RuntimeException {
-        distinct = true;
+    public void meet(Union node) throws RuntimeException {
+        // stop, subquery
+    }
+
+    @Override
+    public void meet(Projection node) throws RuntimeException {
+        // stop, subquery
     }
 }
