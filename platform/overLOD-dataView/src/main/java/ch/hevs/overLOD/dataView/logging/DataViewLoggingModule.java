@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package ch.hevs.overLOD.logging;
+package ch.hevs.overLOD.dataView.logging;
 
 import ch.qos.logback.classic.Level;
 import org.apache.marmotta.platform.core.logging.BaseLoggingModule;
@@ -28,7 +28,7 @@ import java.util.Collections;
  * Configure Logging for the MyService Module
  */
 @ApplicationScoped
-public class MyServiceLoggingModule extends BaseLoggingModule {
+public class DataViewLoggingModule extends BaseLoggingModule {
 
     /**
      * Return the default (logback) level used by this logging module. Should in most cases be INFO or WARN.

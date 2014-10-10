@@ -23,35 +23,24 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import ch.hevs.overLOD.api.MyService;
+import com.jayway.restassured.RestAssured;
 
-public class MyServiceTest {
+import ch.hevs.overLOD.dataView.api.DataView;
+
+public class DataViewServiceTest {
 
     private static EmbeddedMarmotta marmotta;
-    private static MyService myService;
+    private static DataView myService;
 
     @BeforeClass
     public static void setUp() {
         marmotta = new EmbeddedMarmotta();
-        myService = marmotta.getService(MyService.class);
-    }
-
-    @Test
-    public void testDoThis() {
-
-    }
-
-    @Test
-    public void testDoThat() {
-
+        myService = marmotta.getService(DataView.class);
     }
 
     @Test
     public void testHelloWorld() {
         Assert.assertEquals("Hello You", myService.helloWorld("You"));
-        Assert.assertEquals("Hello Steve", myService.helloWorld("Steve"));
-        Assert.assertEquals("Hello Tom", myService.helloWorld("Tom"));
-        Assert.assertEquals("Hello Ron", myService.helloWorld("Ron"));
         Assert.assertEquals("Hello Fernández", myService.helloWorld("Fernández"));
     }
 

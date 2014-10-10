@@ -80,7 +80,9 @@ function ExtDataSources(url) {
      */
     function ExtDataSourcesClient(options) {
         this.hello = function(name,onsuccess,onfailure) {
-            HTTP.get(options.path,name,{200:function(data){if(onsuccess)onsuccess(data);
+						// to be verified that this call is correct
+						var params = {name:name};
+            HTTP.get(options.path,params,null, "text/plain; charset=utf8",{200:function(data){if(onsuccess)onsuccess(data);
 								console.debug("query returned successful");},
                 "default":function(err,response){if(onfailure)onfailure(new ServerError(err,response.status));else throw new Error(err)}
             });

@@ -94,7 +94,7 @@ public class ExtDataSourcesImpl implements ExtDataSources {
     		
         	if (cacheEDSParamsList == null)
         	{
-    	        log.debug("Creating EDS file :" + configurationService.getHome() + "/EDSParamsList.json");
+    	        log.info("Creating EDS file as it doesn't exist yet:" + configurationService.getHome() + "/EDSParamsList.json");
         		cacheEDSParamsList = new EDSParamsList()  ;
         		
                	serializeObjectToJSON(cacheEDSParamsList, configurationService.getHome() + "/EDSParamsList.json") ;

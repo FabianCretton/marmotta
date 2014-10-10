@@ -42,7 +42,7 @@ function ExtDataSources(url) {
 		/**
 		 *  A client for External Data Sources
 		 */
-		var extDataSourcesClient = new ExtDataSourcesClient(options.extDataSourcesPath)
+		var extDataSourcesClient = new ExtDataSourcesClient(options.extDataSourcesPath) ;
 
 		this.extDataSourcesClient = {
 				/**
@@ -63,9 +63,11 @@ function ExtDataSources(url) {
 				 * @param onsuccess Function is executed on success with string result data as parameter.
 				 * @param onfailure Function is executed on failure. It takes a ServerError object.(OPTIONAL)
 				 */
+				 /*
 				saveEDSParams4FileURL : function(EDSType, url,mimetype,context,onsuccess,onfailure) {
 						extDataSourcesClient.saveEDSParams4FileURL(EDSType, url,mimetype,context,onsuccess,onfailure);
 				},
+				*/
 				
 				/**
 				 * saveEDSParams4FileURLAndImport - saving EDS parameters for a file from URL, then import the File

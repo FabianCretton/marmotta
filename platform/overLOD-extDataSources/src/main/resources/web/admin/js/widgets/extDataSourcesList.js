@@ -49,7 +49,15 @@ function EDSList(id,host) {
 		
 			// add one line in the table of EDS
 			function appendEDS(context, EDSParams) {
+				$("<tr>", {"id": "context_" + context })
+				.append($("<td>", {"text": context}))
+				.append($("<td>", {"text": EDSParams.EDSType}))
+				.append($("<td>", {"text": EDSParams.url}))
+				.append($("<td>").append("<a href=\"#\" onclick=\"deleteEDS();return false;\">delete</a>" ))
+				.appendTo($("table#EDSTable > tbody:last"));  
+				/*
 				$("table#EDSTable  > tbody:last").append("<tr id=\"context-" + context + "\"><td>" + context + "</td><td>" + EDSParams.EDSType + "</td><td>" + EDSParams.url + "</td><td><a href=\"#\" class=\"deletePrefix\">delete</a></td></tr>");
+				*/
 			}		
 			
 			$.getJSON("../EDSParams", function(data) {

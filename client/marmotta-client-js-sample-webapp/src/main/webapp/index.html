@@ -16,18 +16,48 @@
     See the License for the specific language governing permissions and
     limitations under the License.
 
+origin:
+    <script type="text/javascript" src="/webjars/jquery/1.8.2/jquery.min.js"></script>
+    <script type="text/javascript" src="/webjars/marmotta-client-js/${project.version}/lmf.js"></script>
+
+prise sur le web, fonctionne    
+  <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.8.3/
+jquery.min.js"></script>
+
+pointer sur le .js    
+    <script type="text/javascript" src="jquery-1.8.2.min.js"></script>
+    
+    <script type="text/javascript" src="/webjars/marmotta.js"></script>
+
 -->
 <!DOCTYPE html>
 <html>
 
   <head>
     <title>Marmotta Javascript Webapp Sample</title>
-    <script type="text/javascript" src="/webjars/jquery/1.8.2/jquery.min.js"></script>
-    <script type="text/javascript" src="/webjars/marmotta-client-js/${project.version}/lmf.js"></script>
+    <script type="text/javascript" src="../../webjars/jquery/1.8.2/jquery.min.js"></script>
+    <script type="text/javascript" src="../../webjars/marmotta-client-js/${project.version}/lmf.js"></script>
+    
+<script>
+alert('start1') ;
+var id = $("#author").text();
+alert('got id') ;
+
+alert('id:' + id) ;
+
+$(document).ready(function() {
+	var id = $("#author").text();
+	alert('doc ready - id:' + id) ;
+    
+  });
+</script>
+		    
   </head>
 
   <body>
-    <h1>Hello Marmotta.js!</h1>
+    <h1>Hello Marmotta.js! Test 3 </h1>
+  <p>Article text</p>  
+  <div id="author">1</div>  
   </body>
 
 </html>

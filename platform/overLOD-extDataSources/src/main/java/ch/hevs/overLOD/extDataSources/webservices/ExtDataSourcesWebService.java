@@ -19,16 +19,17 @@ package ch.hevs.overLOD.extDataSources.webservices;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.net.URI;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
 import java.net.URLEncoder;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.TreeMap;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
-import javax.ws.rs.DefaultValue;
-import javax.ws.rs.FormParam;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
@@ -40,22 +41,21 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpResponse;
-import org.apache.http.client.ClientProtocolException;
+import org.apache.http.NameValuePair;
 import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.message.BasicNameValuePair;
 import org.apache.marmotta.client.ClientConfiguration;
 import org.apache.marmotta.client.util.HTTPUtil;
-import org.apache.marmotta.platform.core.api.config.ConfigurationService;
-import org.openrdf.query.resultio.TupleQueryResultFormat;
+import org.openrdf.model.URI;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import ch.hevs.overLOD.extDataSources.EDSParams.EDSParams;
-import ch.hevs.overLOD.extDataSources.api.*;
-import ch.hevs.overLOD.extDataSources.exceptions.*;
+import ch.hevs.overLOD.extDataSources.api.ExtDataSources;
+import ch.hevs.overLOD.extDataSources.exceptions.ExtDataSourcesException;
 
 /**
  * Web Service for External Data Sources (EDS) management
@@ -77,11 +77,14 @@ public class ExtDataSourcesWebService {
     
     private ClientConfiguration clientConfig;
 
+    //@Inject
+    //private ClientConfiguration iclientConfig;
+    
     private static final String URL_EXTERNAL_IMPORT_SERVICE  = "/import/external";
     
     /**
-     * Return a TreeMap that is the ordered list of configured EDS
-     * @return
+     * Get the list of configured External Data Sources (EDS)
+     * @return Return a TreeMap that is the ordered list of configured EDS
      */
     @GET
     @Path("/EDSParams")
@@ -99,17 +102,25 @@ public class ExtDataSourcesWebService {
         return Response.ok().entity(mappings).build();
     }
     
-    /**
+    /*
+     * The actual implementation of adding an EDS and launching the data load
+     * 
      * Import a file from URL, by calling the 'import' web service
      * That web service will start a thread to load the data asynchronously
      * 
-     * @param contentType
-     * @param url
-     * @param context
-     * @return true if ok, otherwise throws an exception
-     * @throws ExtDataSourcesException
+     * headerAuth: http authentication
+     * 	When Marmotta is in a secure mode (restricted for instance), http authentication is used with user/pwd information
+     *		This information is then needed to call the other web service
+     * 		Setting the user/password inside the ClientConfiguration() seems of no use as those information
+     * 		are not handled by the HttpUtils methods, and anyway this information has to be set on the
+     * 		POST object, not on the HttpClient
+     * contentType: the mimetype of the data to be loaded
+     * url: the url of the data
+     * context: the context to which the data will be saved in the store
+     * return true if ok, otherwise throws an exception
+     * throws ExtDataSourcesException
      */
-    private Boolean callImportWS(String contentType, String url, String context) throws ExtDataSourcesException
+    private Boolean callImportWS(String headerAuth, String contentType, String url, String context) throws ExtDataSourcesException
     {
     	// create a client configuration with the current WS uri's
         clientConfig = new ClientConfiguration(uri.getBaseUri().toString()) ;
@@ -118,21 +129,25 @@ public class ExtDataSourcesWebService {
 
         String serviceUrl = null ;
 		try {
-			serviceUrl = clientConfig.getMarmottaUri() + URL_EXTERNAL_IMPORT_SERVICE 
+			serviceUrl = clientConfig.getMarmottaUri() + URL_EXTERNAL_IMPORT_SERVICE
 					+ "?url=" + URLEncoder.encode(url, "utf-8")
 					+ "&context=" + URLEncoder.encode(context, "utf-8");
-		} catch (UnsupportedEncodingException e) {
+		} catch (Exception e) {
             log.error("could not encode URI parameter",e.getMessage());
 			throw new ExtDataSourcesException(e.getMessage());
 		}
 
     	log.debug("callImportWS- server internal POST call to the import web service:" + serviceUrl);
-        
+    	
         HttpPost post = new HttpPost(serviceUrl);
         post.setHeader("Content-Type", contentType);
-
+        
+        // if a credential is passed to this web service, pass it to the one we call
+        // otherwise the user will be asked for credential, and this call will fail
+        if (headerAuth != null && !headerAuth.equals("")) // null if marmotta is configured with no security option
+        	post.setHeader("Authorization", headerAuth);
+        
         try {
-            
             HttpResponse response = httpClient.execute(post);
             
             switch(response.getStatusLine().getStatusCode()) {
@@ -155,25 +170,65 @@ public class ExtDataSourcesWebService {
 			throw new ExtDataSourcesException("Import Web Service Error: " + e.getMessage());
 		} finally {
             post.releaseConnection();
-        }        
+        }    
     }
     
     /**
-     * Save one External Data Source parameters and start loading it using the 'import' Web Service of Marmotta
-     * @param EDSType, so far only 'RDFFile' is handled 
-     * @param url of the file to be uploaded
-     * @param context Named Graph to which the file is uploaded
-     * @return
-     * @throws ExtDataSourcesException
+     * Save one External Data Source parameters and launch the asynchronous loading process
+     * 
+     * @param headerAuth http authentication
+     * @param contentType mimetype of the data source
+     * @param EDSType a predefined value for the type of EDS - so far only 'RDFFile' is used 
+     * @param url address of the file to be uploaded
+     * @param context Named Graph to which the file is uploaded in the store
+     * @HTTP 200 in case the query was executed successfully
+     * @HTTP 500 in case there was an error during the execution
+     * @return a string which is either a validation message or an error message
+     */
+    /*
+     * data load is based on the 'import' web service
      */
     @POST
     @Path("/EDSParams")
-    public Response addEDS(@HeaderParam("Content-Type") String contentType, @QueryParam("EDSType") String EDSType, @QueryParam("url") String url, @QueryParam("context") String context) {
+    public Response addEDS(@HeaderParam("Authorization") String headerAuth, @HeaderParam("Content-Type") String contentType, @QueryParam("EDSType") String EDSType, @QueryParam("url") String url, @QueryParam("context") String context) {
         log.debug("POST addEDS Content-type:{}, EDSType:{}, url:{} context:{}", contentType, EDSType, url, context);
 
-        // First starts the import
+        /*
+         * Test that the URL is accessible
+         * The Marmotta's import web service does a test with only "conn.connect()"
+         * But that test will succeed if the host is accessible, which doesn't mean that the 
+         * specific resource is accessible.
+         * So here I test with a request to the "HEAD"
+         * Handling a timeout could improve this test
+         */
+        URL finalUrl = null;
+        HttpURLConnection conn = null ;
+        log.debug("testing URL: "+ url) ;
         try {
-			callImportWS(contentType, url, context) ;
+			finalUrl = new URL(url);
+            conn = (HttpURLConnection) finalUrl.openConnection();
+            //conn.connect();
+            conn.setRequestMethod("HEAD");
+            int responseCode = conn.getResponseCode() ;
+            if (responseCode != 200) {
+                log.debug("status different than 200: "+responseCode) ;
+                return Response.status(502).entity("the URL passed as argument cannot be retrieved: " + responseCode).build();
+            } 
+		} catch (MalformedURLException e) {
+            log.debug("malformed URL: "+ e.getMessage()) ;
+            return Response.status(502).entity("the URL passed as argument cannot be retrieved - malformed URL").build();
+        } catch(IOException e) {
+            log.debug("IOException: "+ e.getMessage()) ;
+            return Response.status(502).entity("the URL passed as argument cannot be retrieved:"+ e.getMessage()).build();
+        } finally {
+        	if (conn != null)
+        		conn.disconnect();
+        }
+        
+        log.debug("test passed") ;
+        // Start the import
+        try {
+			callImportWS(headerAuth, contentType, url, context) ;
 		} catch (ExtDataSourcesException e) {
 			return Response.status(Status.INTERNAL_SERVER_ERROR).entity(e.getMessage()).build();
 		}

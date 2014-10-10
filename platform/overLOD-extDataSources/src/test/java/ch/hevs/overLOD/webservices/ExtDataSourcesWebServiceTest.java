@@ -20,6 +20,10 @@ package ch.hevs.overLOD.webservices;
 import static com.jayway.restassured.RestAssured.expect;
 import static com.jayway.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.containsString;
+
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+
 import ch.hevs.overLOD.extDataSources.webservices.ExtDataSourcesWebService;
 
 import com.jayway.restassured.RestAssured;
@@ -34,7 +38,7 @@ import org.junit.Ignore;
 import org.junit.Test;
 import org.apache.marmotta.platform.core.test.base.JettyMarmotta;
 
-public class MyWebServiceTest {
+public class ExtDataSourcesWebServiceTest {
 
     private static JettyMarmotta marmotta;
 
@@ -46,6 +50,14 @@ public class MyWebServiceTest {
         RestAssured.port = 9090;
         RestAssured.basePath = "/EDS-test";
         RestAssured.config = RestAssuredConfig.newConfig().decoderConfig(DecoderConfig.decoderConfig().defaultContentCharset("UTF-8"));
+        
+        /*
+         * No test is currently done on the POST to  "/EDSParams"
+         * as this would launch an import asynchronously
+         * In the Marmotta-core, no test is done on the import functionality, certainly for the same reason
+         * 
+         * A test is done for a bad request
+         */
     }
 
     @AfterClass
@@ -56,72 +68,31 @@ public class MyWebServiceTest {
     }
 
     @Test
-    public void testHello() {
-        /*
-         * GET ?name=<xxx>
-         */
-        RestAssured.given()
-                .param("name", "Steve")
-            .expect()
-                .content(containsString("Hello Steve"))
-            .when()
-                .get("/EDS");
-
-        RestAssured.expect()
-                .statusCode(400)
-            .when()
-                .get("/EDS");
+    public void testGetEDSParams(){
+		  RestAssured.expect()
+		  	  .statusCode(200)
+		  	  .contentType("application/json") 
+		  .when()
+		      .get("/EDS/EDSParams");
     }
-
+    
     @Test
-    public void testNonAsciiHello() {
-        /*
-         * GET ?name=<xxx>
-         */
-        RestAssured.given()
-                .param("name", "Jürgen")
-            .expect()
-                .contentType(ContentType.TEXT)
-                .content(containsString("Hello Jürgen"))
-            .when()
-                .get("/EDS");
-
-        RestAssured.expect()
-                .statusCode(400)
-            .when()
-                .get("/EDS");
+    public void testPostEDSParamsWithBadURL(){
+    	/* 
+    	 * In the current implementation, I don't need to pass the other parameters (headers and query)
+    	 * as the url is tested first
+    	 */
+        expect().
+        	statusCode(502).
+        when().
+        	post("/EDS/EDSParams?url=http://foo.rdf");
+        
+/*        			
+		  RestAssured.expect()
+		  	  .statusCode(200)
+		  	  .contentType("application/json") 
+		  .when()
+		      .get("/EDS/EDSParams");
+		      */
     }
-
-    @Test
-    public void testDoThis() {
-        /*
-         * POST ?turns=i default 2
-         */
-        RestAssured.given()
-                .param("turns", 1)
-            .expect()
-                .statusCode(204)
-            .when()
-                .post("/EDS");
-
-        RestAssured.given()
-                .param("turns", 10)
-            .expect()
-                .statusCode(204)
-            .when()
-                .post("/EDS");
-
-        RestAssured.expect()
-                .statusCode(204)
-            .when()
-                .post("/EDS");
-
-        RestAssured.given()
-                .param("turns", 123)
-            .expect()
-                .statusCode(444)
-            .when()
-                .post("/EDS");
-    }
-
 }

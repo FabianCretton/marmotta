@@ -32,6 +32,13 @@
     <script type="text/javascript" src="js/widgets/extDataSourcesList.js"></script>
     <script type="text/javascript">
 				var listEditor = null ; // object needed for the "refresh list" button
+				
+				function deleteEDS()
+				{
+					// console.log("delete") ;
+					alert('Delete: ') ;
+				}
+				
         $(document).ready(function(){
 						listEditor = new EDSList("EDSList_div",_SERVER_URL);
             var singleEDSEditor = new EDSEditor("EDSEditor_div",listEditor,_SERVER_URL);

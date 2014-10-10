@@ -15,25 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package ch.hevs.overLOD.api;
+package ch.hevs.overLOD.dataView.api;
 
-public interface MyService {
+import java.util.ArrayList;
+import java.util.TreeMap;
 
-    /**
-     * Does that for a given number of times
-     * 
-     * @param i
-     *            number of iterations to {@link #doThat()}
-     * 
-     * @see #doThat()
-     */
-    public void doThis(int i);
+import ch.hevs.overLOD.dataView.exceptions.DataViewException;
 
-    /**
-     * Does that.
-     */
-    public void doThat();
+public interface DataView {
 
+    public ArrayList<String> getDataViewsList() throws DataViewException ;
+	
     /**
      * Echoes <code>"Hello &lt;name&gt;"</code>.
      * 

@@ -15,24 +15,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package ch.hevs.overLOD.exceptions;
+package ch.hevs.overLOD.dataView.exceptions;
 
 
-public class DoThisException extends Exception {
+public class DataViewException extends Exception {
 
-    public DoThisException() {
+    public DataViewException() {
         super();
     }
 
-    public DoThisException(String message) {
+    public DataViewException(String message) {
         super(message);
     }
 
-    public DoThisException(String message, Throwable cause) {
+    public DataViewException(String message, Throwable cause) {
         super(message, cause);
     }
 
-    public DoThisException(Throwable cause) {
+    public DataViewException(Throwable cause) {
         super(cause);
     }
 }

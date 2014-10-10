@@ -488,6 +488,17 @@
             <artifactId>marmotta-security</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>ch.hevs.overLOD</groupId>
+            <artifactId>overLOD-extDataSources</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ch.hevs.overLOD</groupId>
+            <artifactId>overLOD-dataView</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
 
         <!-- JavaEE / Servlet / CDI Environment -->
         <dependency>

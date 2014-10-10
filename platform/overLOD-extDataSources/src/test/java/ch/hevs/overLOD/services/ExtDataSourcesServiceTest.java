@@ -17,15 +17,19 @@
  */
 package ch.hevs.overLOD.services;
 
+import java.util.TreeMap;
+
 import org.apache.marmotta.platform.core.test.base.EmbeddedMarmotta;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import ch.hevs.overLOD.extDataSources.EDSParams.EDSParams;
 import ch.hevs.overLOD.extDataSources.api.ExtDataSources;
+import ch.hevs.overLOD.extDataSources.exceptions.ExtDataSourcesException;
 
-public class MyServiceTest {
+public class ExtDataSourcesServiceTest {
 
     private static EmbeddedMarmotta marmotta;
     private static ExtDataSources myService;
@@ -37,24 +41,18 @@ public class MyServiceTest {
     }
 
     @Test
-    public void testDoThis() {
-
-    }
-
-    @Test
-    public void testDoThat() {
-
-    }
-
-    @Test
-    public void testHelloWorld() {
-    	/*
-        Assert.assertEquals("Hello You", myService.helloWorld("You"));
-        Assert.assertEquals("Hello Steve", myService.helloWorld("Steve"));
-        Assert.assertEquals("Hello Tom", myService.helloWorld("Tom"));
-        Assert.assertEquals("Hello Ron", myService.helloWorld("Ron"));
-        Assert.assertEquals("Hello Fernández", myService.helloWorld("Fernández"));
-        */
+    public void testGetEDSParamsList() {
+    	Object obj = null ;
+    	
+    	try {
+			obj = myService.getEDSParamsList() ;
+		} catch (ExtDataSourcesException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    	
+    	Assert.assertTrue(obj instanceof TreeMap);
+    	// TreeMap<String,EDSParams>
     }
 
     @AfterClass

@@ -81,6 +81,7 @@
                 $.each(data, function(prefix, namespace) {
                 	appendPrefix(prefix, namespace);
                 });
+                
                 $("a.deletePrefix").click(function() {
                     var row = $(this).closest("td").closest("tr");
                     var prefix = row.find("td:first").text();

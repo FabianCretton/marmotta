@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package ch.hevs.overLOD.jaxrs;
+package ch.hevs.overLOD.dataView.jaxrs;
 
 import org.apache.marmotta.platform.core.jaxrs.exceptionmappers.CDIExceptionMapper;
 
@@ -23,17 +23,17 @@ import javax.enterprise.context.Dependent;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.Provider;
 
-import ch.hevs.overLOD.exceptions.DoThisException;
+import ch.hevs.overLOD.dataView.exceptions.DataViewException;
 
 /**
  * Map DoThisException to a HTTP Response
  */
 @Provider
 @Dependent
-public class DoThisExceptionMapper implements CDIExceptionMapper<DoThisException> {
+public class DataViewExceptionMapper implements CDIExceptionMapper<DataViewException> {
 
     @Override
-    public Response toResponse(DoThisException exception) {
+    public Response toResponse(DataViewException exception) {
         return Response.status(444).entity(exception.getMessage()).build();
     }
 }

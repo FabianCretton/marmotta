@@ -17,33 +17,57 @@
  */
 package ch.hevs.overLOD.webservices;
 
-import static com.jayway.restassured.RestAssured.expect;
-import static com.jayway.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.containsString;
+
+import javax.inject.Inject;
+
+import org.apache.marmotta.platform.core.api.config.ConfigurationService;
+import org.apache.marmotta.platform.core.services.config.ConfigurationServiceImpl;
+import org.apache.marmotta.platform.core.test.base.JettyMarmotta;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
+
+import ch.hevs.overLOD.dataView.webservices.DataViewWebService;
 
 import com.jayway.restassured.RestAssured;
 import com.jayway.restassured.config.DecoderConfig;
 import com.jayway.restassured.config.RestAssuredConfig;
 import com.jayway.restassured.http.ContentType;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Ignore;
-import org.junit.Ignore;
-import org.junit.Test;
 
-import org.apache.marmotta.platform.core.test.base.JettyMarmotta;
+import org.apache.marmotta.platform.sparql.webservices.SparqlWebService ;
 
-public class MyWebServiceTest {
+public class DataViewWebServiceTest {
 
     private static JettyMarmotta marmotta;
 
+    //@Inject
+    //private static ConfigurationService configurationService;
+
     @BeforeClass
     public static void beforeClass() {
-        marmotta = new JettyMarmotta("/overLOD-dataView-test", 9090, MyWebService.class);
+        //marmotta = new JettyMarmotta("/dataView-test", 9090, DataViewWebService.class);
+    	marmotta = new JettyMarmotta("/dataView-test", 9090, DataViewWebService.class, SparqlWebService.class);
 
+    	/*
+    	 * A trial to find out the marmotta-home directory
+    	 * It will then be needed to create the \DataView sub-folder, and add a .sparql query file to it
+    	 * I don't know yet if this could be done automatically with Maven or if it has to be done here
+    	 * The following tests failed: no way to get the current home directory
+    	 * Should I call the configuration web service and ask for 'marmotta.home', which is defined in the
+    	 * configuration file ?
+    	ConfigurationServiceImpl tst = new ConfigurationServiceImpl() ;
+    	
+    	System.out.println("fab tst av: "+ tst.getHome()) ;
+    	if (configurationService == null)
+        	System.out.println("configurationService == null") ;
+    		
+    	System.out.println("Marmotta home: "+ configurationService.getHome()) ;
+    	System.out.println("fab tst ap") ;
+    	*/
         RestAssured.baseURI = "http://localhost";
         RestAssured.port = 9090;
-        RestAssured.basePath = "/overLOD-dataView-test";
+        RestAssured.basePath = "/dataView-test";
         RestAssured.config = RestAssuredConfig.newConfig().decoderConfig(DecoderConfig.decoderConfig().defaultContentCharset("UTF-8"));
     }
 
@@ -55,6 +79,41 @@ public class MyWebServiceTest {
     }
 
     @Test
+    /*
+     */
+    public void getDataViewTest(){
+        /*
+         * The real getDataView() will read the query from a file found in the marmotta-home/DataView sub-folder
+         * Currently, I didn't implement the creation of that folder and corresponding files that could be used
+         * by the unit test (which executes in a temporary marmotta-home), hence this method for simple tests
+         * 
+         * This current test does call a service with a predefined SPARQL query
+         */
+    	
+        RestAssured.given()
+    	.expect()
+	  	  .statusCode(200)
+	  	  .contentType("application/json") 
+	  .when()
+	      .get("/dataView/test");
+
+        /*
+        RestAssured.given()
+        	.param("viewName", "allTriplesLimit10")
+        	.expect()
+		  	  .statusCode(200)
+		  	  .contentType("application/json") 
+		  .when()
+		      .get("/dataView");
+
+		 // missing parameter 'viewName'
+		RestAssured.expect()
+		      .statusCode(500)
+		  .when()
+		      .get("/dataView");
+		*/
+    }    
+    @Test
     public void testHello() {
         /*
          * GET ?name=<xxx>
@@ -64,12 +123,12 @@ public class MyWebServiceTest {
             .expect()
                 .content(containsString("Hello Steve"))
             .when()
-                .get("/overLOD-dataView");
+                .get("/dataView/hello");
 
         RestAssured.expect()
                 .statusCode(400)
             .when()
-                .get("/overLOD-dataView");
+                .get("/dataView/hello");
     }
 
     @Test
@@ -83,44 +142,7 @@ public class MyWebServiceTest {
                 .contentType(ContentType.TEXT)
                 .content(containsString("Hello Jürgen"))
             .when()
-                .get("/overLOD-dataView");
-
-        RestAssured.expect()
-                .statusCode(400)
-            .when()
-                .get("/overLOD-dataView");
-    }
-
-    @Test
-    public void testDoThis() {
-        /*
-         * POST ?turns=i default 2
-         */
-        RestAssured.given()
-                .param("turns", 1)
-            .expect()
-                .statusCode(204)
-            .when()
-                .post("/overLOD-dataView");
-
-        RestAssured.given()
-                .param("turns", 10)
-            .expect()
-                .statusCode(204)
-            .when()
-                .post("/overLOD-dataView");
-
-        RestAssured.expect()
-                .statusCode(204)
-            .when()
-                .post("/overLOD-dataView");
-
-        RestAssured.given()
-                .param("turns", 123)
-            .expect()
-                .statusCode(444)
-            .when()
-                .post("/overLOD-dataView");
+                .get("/dataView/hello");
     }
 
 }
