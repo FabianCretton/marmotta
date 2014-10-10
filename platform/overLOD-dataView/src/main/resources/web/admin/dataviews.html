@@ -1,0 +1,160 @@
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements. See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership. The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+		                $.each(data, function(prefix, namespace) {
+                	appendPrefix(prefix, namespace);
+                });     
+
+-->
+<html>
+<head>
+<!--###BEGIN_HEAD###-->
+    <title>Data Views</title>
+    <script type="text/javascript" src="../../webjars/jquery/1.8.2/jquery.min.js"></script>
+    <script type="text/javascript" src="../../webjars/marmotta.js"></script>
+    <script type="text/javascript" src="js/widgets/dataViewList.js"></script>
+    <script type="text/javascript" src="js/widgets/dataViewClient.js"></script>
+    <script type="text/javascript">
+			function showViewDetails(viewName)
+			{
+				$("#dataViewName").html("Data view name: " + viewName);
+
+				$.get("../query?viewName=" + viewName, function(data) {
+						$("#dataViewQuery").html("Data view query:<BR>" + data);
+				}).error(function(jqXhr, textStatus, error) {
+						// textStatus just contains 'error'
+						alert("ERROR getting Data Views query (" + jqXhr.statusText + ": " + jqXhr.responseText + ")");
+						$("#dataViewQuery").html("Data view query:<BR>ERROR getting Data Views query (" + jqXhr.statusText + ": " + jqXhr.responseText + ")");
+				});		
+				
+			}
+		
+				var listEditor = null ; // object that would be needed for a "refresh list" button, see EDS as an example
+        $(document).ready(function(){
+						listEditor = new DVList("DataViews_div",_SERVER_URL);
+						
+						displayDVCallExamples("DataViewCalls_div",_SERVER_URL) ;
+        })
+				
+				function displayDVCallExamples(id,host)
+				{
+				var loader =$("<img style='position: relative;top: 4px;margin-left: 10px;' src='../public/img/loader/ajax-loader_small.gif'>");
+				
+				var container = $("#"+id);
+				
+				// for debugging WS
+				var dataView = new DataView(host) ;
+				
+				container.append($("<h2></h2>").append("Data View - calls examples").append(loader));
+				
+				container.append($("<a class='data_view_text_link'></a>").text("Test WS - hello").click(function(){
+					testWScallHello() ;
+				 }));
+				 
+				container.append($("<p></p>").append("JSON")) ;
+
+				container.append($("<a class='data_view_text_link'></a>").text("Test WS - getDataView call JSON").click(function(){
+					testWSgetDataViewJSON() ;
+				 }));
+
+				container.append($("<p></p>").append("SPARQL-XML")) ;
+
+				container.append($("<a class='data_view_text_link'></a>").text("Test WS - getDataView call XML").click(function(){
+					testWSgetDataViewXML() ;
+				 }));
+
+				container.append($("<p></p>").append("SPARQL-CSV")) ;
+
+				container.append($("<a class='data_view_text_link'></a>").text("Test WS - getDataView call CSV").click(function(){
+					testWSgetDataViewCSV() ;
+				 }));
+				 
+				 loader.hide() ;
+				 
+				function testWScallHello()
+				{
+					dataView.dataViewClient.hello('John', success, failure) ;
+				}
+
+				function testWSgetDataViewJSON()
+				{
+					dataView.dataViewClient.getDataView('allTriplesLimit10', "application/sparql-results+json", successJSON, failure) ;
+				}
+
+				function testWSgetDataViewXML()
+				{
+					dataView.dataViewClient.getDataView('allTriplesLimit10', "application/sparql-results+xml", success, failure) ;
+				}
+
+				function testWSgetDataViewCSV()
+				{
+					dataView.dataViewClient.getDataView('allTriplesLimit10', "text/csv", success, failure) ;
+				}
+
+				function success(result)
+				{
+				alert('success:' + result) ;
+				document.getElementById("queryResult").innerHTML= result; 
+				}
+
+				function successJSON(resultJSON)
+				{
+				alert('success:' + resultJSON) ;
+
+				// Getting directly the results bindings:
+				var resParsed = JSON.parse(resultJSON).results.bindings ;
+
+				document.getElementById("queryResult").innerHTML= JSON.stringify(resParsed, null); 
+				}
+				
+				function failure(serverError)
+				{
+				alert('error (' + serverError.name + '): ' + serverError.message) ;
+				}
+			}
+				</script>
+				<style>
+						.data_view_text_link {
+								padding: 2px;
+								cursor: pointer;
+						}
+						.importer_table {
+								background-color: #eeeeee;
+								padding: 10px;
+								border: 1px solid gray;
+								-webkit-border-radius: 3px;
+								border-radius: 3px;
+						}				 
+				}
+
+    </style>
+<!--###END_HEAD###-->
+</head>
+<body>
+<!--###BEGIN_CONTENT###-->
+<h1>Data views</h1>
+	<div id="DataViews_div"></div>
+	<h2>Data view details</h2>
+  <div id="dataViewName">Data view name:</div>  
+  <div id="dataViewQuery">Data view query:</div>  
+	<div id="DataViewCalls_div"></div>
+  <p>Query result:</p>  
+  <div id="queryResult"></div> 
+<!--###END_CONTENT###-->
+</body>
+</html>
