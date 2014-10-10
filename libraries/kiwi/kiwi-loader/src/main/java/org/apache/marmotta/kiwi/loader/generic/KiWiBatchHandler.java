@@ -17,8 +17,8 @@
 
 package org.apache.marmotta.kiwi.loader.generic;
 
+import org.apache.marmotta.commons.sesame.model.LiteralCommons;
 import org.apache.marmotta.kiwi.loader.KiWiLoaderConfiguration;
-import org.apache.marmotta.kiwi.loader.pgsql.KiWiPostgresHandler;
 import org.apache.marmotta.kiwi.model.rdf.*;
 import org.apache.marmotta.kiwi.sail.KiWiStore;
 import org.openrdf.model.Literal;
@@ -41,13 +41,13 @@ import java.util.concurrent.ExecutionException;
  */
 public abstract class KiWiBatchHandler extends KiWiHandler implements RDFHandler {
 
-    private static Logger log = LoggerFactory.getLogger(KiWiPostgresHandler.class);
+    private static Logger log = LoggerFactory.getLogger(KiWiBatchHandler.class);
 
 
     protected List<KiWiNode> nodeBacklog;
     protected List<KiWiTriple> tripleBacklog;
 
-    protected Map<Literal,KiWiLiteral> literalBacklogLookup;
+    protected Map<String,KiWiLiteral> literalBacklogLookup;
     protected Map<String,KiWiUriResource> uriBacklogLookup;
     protected Map<String,KiWiAnonResource> bnodeBacklogLookup;
 
@@ -138,6 +138,7 @@ public abstract class KiWiBatchHandler extends KiWiHandler implements RDFHandler
     public void endRDF() throws RDFHandlerException {
         try {
             flushBacklog();
+            connection.commit();
         } catch (SQLException e) {
             throw new RDFHandlerException(e);
         }
@@ -160,7 +161,7 @@ public abstract class KiWiBatchHandler extends KiWiHandler implements RDFHandler
 
     @Override
     protected KiWiLiteral createLiteral(Literal l) throws ExecutionException {
-        KiWiLiteral result = literalBacklogLookup.get(l);
+        KiWiLiteral result = literalBacklogLookup.get(LiteralCommons.createCacheKey(l));
         if(result == null) {
             result = super.createLiteral(l);
         }
@@ -179,7 +180,7 @@ public abstract class KiWiBatchHandler extends KiWiHandler implements RDFHandler
     @Override
     protected void storeNode(KiWiNode node) throws SQLException {
         if(node.getId() < 0) {
-            node.setId(connection.getNextSequence("nodes"));
+            node.setId(connection.getNextSequence());
         }
 
         nodeBacklog.add(node);
@@ -189,7 +190,7 @@ public abstract class KiWiBatchHandler extends KiWiHandler implements RDFHandler
         } else if(node instanceof KiWiAnonResource) {
             bnodeBacklogLookup.put(node.stringValue(), (KiWiAnonResource)node);
         } else if(node instanceof KiWiLiteral) {
-            literalBacklogLookup.put((KiWiLiteral)node, (KiWiLiteral)node);
+            literalBacklogLookup.put(LiteralCommons.createCacheKey((Literal) node), (KiWiLiteral)node);
         }
 
         nodes++;

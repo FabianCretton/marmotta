@@ -25,7 +25,10 @@ import org.apache.marmotta.commons.util.DateUtils;
 import org.apache.marmotta.kiwi.loader.KiWiLoaderConfiguration;
 import org.apache.marmotta.kiwi.model.rdf.*;
 import org.apache.marmotta.kiwi.persistence.KiWiConnection;
+import org.apache.marmotta.kiwi.persistence.registry.CacheTripleRegistry;
 import org.apache.marmotta.kiwi.persistence.registry.DBTripleRegistry;
+import org.apache.marmotta.kiwi.persistence.registry.KiWiTripleRegistry;
+import org.apache.marmotta.kiwi.persistence.registry.LocalTripleRegistry;
 import org.apache.marmotta.kiwi.sail.KiWiStore;
 import org.openrdf.model.*;
 import org.openrdf.model.impl.URIImpl;
@@ -70,7 +73,7 @@ public class KiWiHandler implements RDFHandler {
     private KiWiResource overrideContext;
 
     // only used when statement existance check is enabled
-    protected DBTripleRegistry registry;
+    protected KiWiTripleRegistry registry;
 
 
     protected Date importDate;
@@ -99,8 +102,26 @@ public class KiWiHandler implements RDFHandler {
 
 
         if(config.isStatementExistanceCheck()) {
-            registry = new DBTripleRegistry(store);
+            switch (store.getPersistence().getConfiguration().getRegistryStrategy()) {
+                case DATABASE:
+                    log.info("KiWi Loader: database registry");
+                    registry        = new DBTripleRegistry(store);
+                    break;
+                case CACHE:
+                    log.info("KiWi Loader: cache registry");
+                    registry        = new CacheTripleRegistry(store.getPersistence().getCacheManager());
+                    break;
+                case LOCAL:
+                    log.info("KiWi Loader: in-memory registry");
+                    registry        = new LocalTripleRegistry();
+                    break;
+                default:
+                    log.info("KiWi Loader: in-memory registry");
+                    registry        = new LocalTripleRegistry();
+            }
         }
+
+        log.info("KiWi Loader: namespaces {}", config.isIgnoreNamespaces() ? "ignored" : "enabled");
     }
 
 
@@ -204,10 +225,20 @@ public class KiWiHandler implements RDFHandler {
      */
     @Override
     public void handleNamespace(String prefix, String uri) throws RDFHandlerException {
-        try {
-            connection.storeNamespace(new KiWiNamespace(prefix,uri));
-        } catch (SQLException e) {
-            throw new RDFHandlerException(e);
+        if(!config.isIgnoreNamespaces()) {
+            try {
+                KiWiNamespace result = connection.loadNamespaceByPrefix(prefix);
+                if(result != null) {
+                    if(!result.getUri().equals(uri)) {
+                        connection.deleteNamespace(result);
+                        connection.storeNamespace(new KiWiNamespace(prefix,uri));
+                    }
+                } else {
+                    connection.storeNamespace(new KiWiNamespace(prefix,uri));
+                }
+            } catch (SQLException e) {
+                throw new RDFHandlerException(e);
+            }
         }
     }
 
@@ -240,27 +271,36 @@ public class KiWiHandler implements RDFHandler {
                 long tripleId = registry.lookupKey(cacheKey);
 
                 if(tripleId >= 0) {
+                    // the triple has already been stored
+
+                    /*
                     // try getting id from registry
                     result.setId(tripleId);
 
                     registry.registerKey(cacheKey, connection.getTransactionId(), result.getId());
+
+                    storeTriple(result);
+                    */
                 } else {
                     // not found in registry, try loading from database
-                    result.setId(connection.getTripleId(subject,predicate,object,context,true));
+                    result.setId(connection.getTripleId(subject,predicate,object,context));
                 }
 
                 // triple has no id from registry or database, so we create one and flag it for reasoning
                 if(result.getId() < 0) {
-                    result.setId(connection.getNextSequence("seq.triples"));
+                    result.setId(connection.getNextSequence());
                     result.setNewTriple(true);
 
                     registry.registerKey(cacheKey, connection.getTransactionId(), result.getId());
+
+                    storeTriple(result);
                 }
             } else {
-                result.setId(connection.getNextSequence("triples"));
+                result.setId(connection.getNextSequence());
+
+                storeTriple(result);
             }
 
-            storeTriple(result);
 
         } catch (SQLException | ExecutionException e) {
             throw new RDFHandlerException(e);
