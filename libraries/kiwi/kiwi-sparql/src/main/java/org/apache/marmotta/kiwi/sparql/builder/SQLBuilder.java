@@ -21,7 +21,6 @@ import com.google.common.base.Preconditions;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.marmotta.commons.collections.CollectionUtils;
 import org.apache.marmotta.commons.util.DateUtils;
-import org.apache.marmotta.commons.vocabulary.XSD;
 import org.apache.marmotta.kiwi.model.rdf.KiWiNode;
 import org.apache.marmotta.kiwi.persistence.KiWiDialect;
 import org.apache.marmotta.kiwi.sail.KiWiValueFactory;
@@ -218,22 +217,15 @@ public class SQLBuilder {
                                 sv.setProjectionType(ProjectionType.NODE);
                             }
 
+                            String pName = p.getName();
+                            String vName = sv.getName();
+
+                            if (new ConditionFinder(v.getName(), query).found) {
+                                sv.setAlias(pName + "_" + positions[i] + "_" + vName);
+                            }
+
                             addVariable(sv);
                         }
-
-                        String pName = p.getName();
-                        String vName = sv.getName();
-
-                        if (new ConditionFinder(v.getName(), query).found) {
-                            sv.getAliases().add(pName + "_" + positions[i] + "_" + vName);
-                        }
-
-                        // if the variable has been used before, add a join condition to the first occurrence
-                        if(sv.getExpressions().size() > 0) {
-                            p.getConditions().add(sv.getExpressions().get(0) + " = " + pName + "." + positions[i]);
-                        }
-
-                        sv.getExpressions().add(pName + "." + positions[i]);
                     }
                 }
             }
@@ -251,22 +243,15 @@ public class SQLBuilder {
                             sv.setProjectionType(sq_v.getProjectionType());
                         }
 
+                        String sqName = sq.getAlias();
+                        String vName = sv.getName();
+
+                        if (new ConditionFinder(sq_v.getSparqlName(), query).found) {
+                            sv.setAlias(sqName + "_" + vName);
+                        }
+
                         addVariable(sv);
                     }
-
-                    String sqName = sq.getAlias();
-                    String vName = sv.getName();
-
-                    if (new ConditionFinder(sq_v.getSparqlName(), query).found) {
-                        sv.getAliases().add(sqName + "_" + vName);
-                    }
-
-                    // if the variable has been used before, add a join condition to the first occurrence
-                    if(sv.getExpressions().size() > 0) {
-                        sq.getConditions().add(sv.getExpressions().get(0) + " = " + sqName + "." + sq_v.getName());
-                    }
-
-                    sv.getExpressions().add(sqName + "." + sq_v.getName());
 
                 }
             }
@@ -297,9 +282,54 @@ public class SQLBuilder {
                 //sv.getAliases().add(evaluateExpression(ext.getExpr(), OPTypes.VALUE));
                 sv.getBindings().add(ext.getExpr());
             }
+
             sv.getExpressions().add(evaluateExpression(ext.getExpr(), OPTypes.ANY));
 
         }
+
+        // calculate for each variable the SQL expressions representing them and any necessary JOIN conditions
+
+        for(SQLFragment f : fragments) {
+            for (SQLPattern p : f.getPatterns()) {
+                // build pattern
+                Var[] fields = p.getFields();
+                for (int i = 0; i < fields.length; i++) {
+                    if (fields[i] != null && !fields[i].hasValue()) {
+                        Var v = fields[i];
+
+                        SQLVariable sv = variables.get(v.getName());
+
+                        String pName = p.getName();
+
+                        // if the variable has been used before, add a join condition to the first occurrence
+                        if(sv.getExpressions().size() > 0) {
+                            p.getConditions().add(sv.getExpressions().get(0) + " = " + pName + "." + positions[i]);
+                        }
+
+                        sv.getExpressions().add(pName + "." + positions[i]);
+                    }
+                }
+            }
+
+            // subqueries: look up which variables are bound in the subqueries and add proper aliases
+            for(SQLAbstractSubquery sq : f.getSubqueries()) {
+                for(SQLVariable sq_v : sq.getQueryVariables()) {
+                    SQLVariable sv = variables.get(sq_v.getSparqlName());
+
+                    String sqName = sq.getAlias();
+
+                    // if the variable has been used before, add a join condition to the first occurrence
+                    if(sv.getExpressions().size() > 0) {
+                        sq.getConditions().add(sv.getExpressions().get(0) + " = " + sqName + "." + sq_v.getName());
+                    }
+
+                    sv.getExpressions().add(sqName + "." + sq_v.getName());
+
+                }
+            }
+        }
+
+
 
         // find context restrictions of patterns and match them with potential restrictions given in the
         // dataset (MARMOTTA-340)
@@ -432,9 +462,7 @@ public class SQLBuilder {
                         if (v instanceof KiWiNode) {
                             long nodeId = ((KiWiNode) v).getId();
 
-                            cCond.append(varName);
-                            cCond.append(".context = ");
-                            cCond.append(nodeId);
+                            cCond.append(varName).append(".context = ").append(nodeId);
 
                             if (it.hasNext()) {
                                 cCond.append(" OR ");
@@ -483,7 +511,7 @@ public class SQLBuilder {
     }
 
 
-    private String buildSelectClause() {
+    private StringBuilder buildSelectClause() {
         List<String> projections = new ArrayList<>();
 
         // enforce order in SELECT part, we need this for merging UNION subqueries
@@ -517,11 +545,11 @@ public class SQLBuilder {
 
         selectClause.append(CollectionUtils.fold(projections,", "));
 
-        return selectClause.toString();
+        return selectClause;
     }
 
 
-    private String buildFromClause() {
+    private StringBuilder buildFromClause() {
         // build the from-clause of the query; the from clause is constructed as follows:
         // 1. for each pattern P, there will be a "KiWiTriple P" in the from clause
         // 2. for each variable V in P occurring in
@@ -538,11 +566,11 @@ public class SQLBuilder {
             }
         }
 
-        return fromClause.toString();
+        return fromClause;
     }
 
 
-    private String buildWhereClause()  {
+    private StringBuilder buildWhereClause()  {
         // build the where clause as follows:
         // 1. iterate over all patterns and for each resource and literal field in subject,
         //    property, object, or context, and set a query condition according to the
@@ -593,10 +621,10 @@ public class SQLBuilder {
                 }
             }
         }
-        return whereClause.toString();
+        return whereClause;
     }
 
-    private String buildOrderClause() {
+    private StringBuilder buildOrderClause() {
         StringBuilder orderClause = new StringBuilder();
         if(orderby.size() > 0) {
             for(Iterator<OrderElem> it = orderby.iterator(); it.hasNext(); ) {
@@ -614,10 +642,10 @@ public class SQLBuilder {
             orderClause.append(" \n");
         }
 
-        return orderClause.toString();
+        return orderClause;
     }
 
-    private String buildGroupClause() {
+    private StringBuilder buildGroupClause() {
         StringBuilder groupClause = new StringBuilder();
         if(groupLabels.size() > 0) {
             for(Iterator<String> it = groupLabels.iterator(); it.hasNext(); ) {
@@ -640,11 +668,11 @@ public class SQLBuilder {
             groupClause.append(" \n");
         }
 
-        return groupClause.toString();
+        return groupClause;
     }
 
 
-    private String buildLimitClause() {
+    private StringBuilder buildLimitClause() {
         // construct limit and offset
         StringBuilder limitClause = new StringBuilder();
         if(limit > 0) {
@@ -657,7 +685,7 @@ public class SQLBuilder {
             limitClause.append(offset);
             limitClause.append(" ");
         }
-        return limitClause.toString();
+        return limitClause;
     }
 
 
@@ -691,7 +719,7 @@ public class SQLBuilder {
             Lang lang = (Lang)expr;
 
             if(lang.getArg() instanceof Var) {
-                return variables.get(((Var) lang.getArg()).getName()).getPrimaryAlias() + ".lang";
+                return variables.get(((Var) lang.getArg()).getName()).getAlias() + ".lang";
             }
         } else if(expr instanceof Compare) {
             Compare cmp = (Compare)expr;
@@ -727,8 +755,18 @@ public class SQLBuilder {
             } else if(pattern.getValue().stringValue().equals("")) {
                 return value + " IS NULL";
             } else {
-                return "(" + value + " = '"+pattern.getValue().stringValue()+"' OR " + dialect.getILike(value, "'" + pattern.getValue().stringValue() + "-%' )");
+                return "(" + value + " = '"+pattern.getValue().stringValue().toLowerCase()+"' OR " + dialect.getILike(value, "'" + pattern.getValue().stringValue().toLowerCase() + "-%' )");
             }
+        } else if(expr instanceof Bound) {
+            ValueExpr arg = ((Bound)expr).getArg();
+
+            if(arg instanceof ValueConstant) {
+                return Boolean.toString(true);
+            } else if(arg instanceof Var) {
+
+                return "(" + evaluateExpression(arg, optype) + " IS NOT NULL)";
+            }
+
         } else if(expr instanceof IsResource) {
             ValueExpr arg = ((UnaryValueOperator)expr).getArg();
 
@@ -736,7 +774,7 @@ public class SQLBuilder {
             if(arg instanceof ValueConstant) {
                 return Boolean.toString(((ValueConstant) arg).getValue() instanceof URI || ((ValueConstant) arg).getValue() instanceof BNode);
             } else if(arg instanceof Var) {
-                String var = variables.get(((Var) arg).getName()).getPrimaryAlias();
+                String var = variables.get(((Var) arg).getName()).getAlias();
 
                 return "(" + var + ".ntype = 'uri' OR " + var + ".ntype = 'bnode')";
             }
@@ -747,7 +785,7 @@ public class SQLBuilder {
             if(arg instanceof ValueConstant) {
                 return Boolean.toString(((ValueConstant) arg).getValue() instanceof URI);
             } else if(arg instanceof Var) {
-                String var = variables.get(((Var) arg).getName()).getPrimaryAlias();
+                String var = variables.get(((Var) arg).getName()).getAlias();
 
                 return var + ".ntype = 'uri'";
             }
@@ -758,7 +796,7 @@ public class SQLBuilder {
             if(arg instanceof ValueConstant) {
                 return Boolean.toString(((ValueConstant) arg).getValue() instanceof BNode);
             } else if(arg instanceof Var) {
-                String var = variables.get(((Var) arg).getName()).getPrimaryAlias();
+                String var = variables.get(((Var) arg).getName()).getAlias();
 
                 return var + ".ntype = 'bnode'";
             }
@@ -769,7 +807,7 @@ public class SQLBuilder {
             if(arg instanceof ValueConstant) {
                 return Boolean.toString(((ValueConstant) arg).getValue() instanceof Literal);
             } else if(arg instanceof Var) {
-                String var = variables.get(((Var) arg).getName()).getPrimaryAlias();
+                String var = variables.get(((Var) arg).getName()).getAlias();
 
                 return "(" + var + ".ntype = 'string' OR " + var + ".ntype = 'int' OR " + var + ".ntype = 'double'  OR " + var + ".ntype = 'date'  OR " + var + ".ntype = 'boolean')";
             }
@@ -782,7 +820,7 @@ public class SQLBuilder {
                 // variable occurrence with its value
                 return evaluateExpression(sv.getBindings().get(0),optype);
             } else {
-                String var = sv.getPrimaryAlias();
+                String var = sv.getAlias();
 
                 if(sv.getProjectionType() != ProjectionType.NODE && sv.getProjectionType() != ProjectionType.NONE) {
                     // in case the variable represents a constructed or bound value instead of a node, we need to
@@ -828,7 +866,12 @@ public class SQLBuilder {
                     case INT:    return ""  + Integer.parseInt(val);
                     case DOUBLE: return ""  + Double.parseDouble(val);
                     case DATE:   return "'" + sqlDateFormat.format(DateUtils.parseDate(val)) + "'";
-                    case ANY:    return "'" + val + "'";
+
+                    // in this case we should return a node ID and also need to make sure it actually exists
+                    case ANY:
+                        KiWiNode n = converter.convert(((ValueConstant) expr).getValue());
+                        return "" + n.getId();
+
                     default: throw new IllegalArgumentException("unsupported value type: " + optype);
                 }
             }
@@ -855,7 +898,8 @@ public class SQLBuilder {
                 List<String> countVariables = new ArrayList<>();
                 for(SQLVariable v : variables.values()) {
                     if(v.getProjectionType() == ProjectionType.NONE) {
-                        countVariables.add(v.getExpressions().get(0));
+                        //countVariables.add(v.getExpressions().get(0));
+                        countVariables.add(v.getAlias());
                     }
                 }
                 countExp.append("ARRAY[");
@@ -875,7 +919,7 @@ public class SQLBuilder {
         } else if(expr instanceof Max) {
             return "MAX(" + evaluateExpression(((Max) expr).getArg(), OPTypes.DOUBLE) + ")";
         } else if(expr instanceof Sum) {
-            return "SUM(" + evaluateExpression(((Max) expr).getArg(), OPTypes.DOUBLE) + ")";
+            return "SUM(" + evaluateExpression(((Sum) expr).getArg(), OPTypes.DOUBLE) + ")";
         } else if(expr instanceof FunctionCall) {
             FunctionCall fc = (FunctionCall)expr;
 
@@ -1062,6 +1106,8 @@ public class SQLBuilder {
         } else if(expr instanceof NAryValueOperator) {
             return getProjectionType(((NAryValueOperator) expr).getArguments().get(0));
         } else if(expr instanceof ValueConstant) {
+            return ProjectionType.NODE;
+            /*
             if (((ValueConstant) expr).getValue() instanceof URI) {
                 return ProjectionType.URI;
             } else if (((ValueConstant) expr).getValue() instanceof Literal) {
@@ -1077,12 +1123,19 @@ public class SQLBuilder {
             } else {
                 return ProjectionType.STRING;
             }
+            */
         } else if(expr instanceof Var) {
             return ProjectionType.NODE;
         } else if(expr instanceof MathExpr) {
-            MathExpr cmp = (MathExpr)expr;
+            MathExpr cmp = (MathExpr) expr;
 
             return opTypeToProjection(new OPTypeFinder(cmp).coerce());
+        } else if(expr instanceof Count) {
+            return ProjectionType.INT;
+        } else if(expr instanceof Sum) {
+            return ProjectionType.DOUBLE;
+        } else if(expr instanceof Avg) {
+            return ProjectionType.DOUBLE;
         } else {
             return ProjectionType.STRING;
         }
@@ -1114,13 +1167,13 @@ public class SQLBuilder {
      *
      * @return
      */
-    public String build()  {
-        String selectClause = buildSelectClause();
-        String fromClause   = buildFromClause();
-        String whereClause  = buildWhereClause();
-        String orderClause  = buildOrderClause();
-        String groupClause  = buildGroupClause();
-        String limitClause  = buildLimitClause();
+    public StringBuilder build()  {
+        StringBuilder selectClause = buildSelectClause();
+        StringBuilder fromClause   = buildFromClause();
+        StringBuilder whereClause  = buildWhereClause();
+        StringBuilder orderClause  = buildOrderClause();
+        StringBuilder groupClause  = buildGroupClause();
+        StringBuilder limitClause  = buildLimitClause();
 
 
         StringBuilder queryString = new StringBuilder();
@@ -1148,7 +1201,7 @@ public class SQLBuilder {
         log.debug("SPARQL -> SQL node variable mappings:\n {}", variables);
         log.debug("projected variables:\n {}", projectedVars);
 
-        return queryString.toString();
+        return queryString;
     }
 
 }
