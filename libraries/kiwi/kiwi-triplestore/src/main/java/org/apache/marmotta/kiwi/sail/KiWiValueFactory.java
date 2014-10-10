@@ -574,12 +574,12 @@ public class KiWiValueFactory implements ValueFactory {
                     registry.registerKey(cacheKey, connection.getTransactionId(), result.getId());
                 } else {
                     // not found in registry, try loading from database
-                    result.setId(connection.getTripleId(ksubject,kpredicate,kobject,kcontext,true));
+                    result.setId(connection.getTripleId(ksubject,kpredicate,kobject,kcontext));
                 }
 
                 // triple has no id from registry or database, so we create one and flag it for reasoning
                 if(result.getId() < 0) {
-                    result.setId(connection.getNextSequence("seq.triples"));
+                    result.setId(connection.getNextSequence());
                     result.setNewTriple(true);
 
                     registry.registerKey(cacheKey, connection.getTransactionId(), result.getId());
