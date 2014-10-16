@@ -1,25 +1,7 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements. See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership. The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 /**
  * Creates a DataView object to access the Web Service
  *
- * Author: Fabian Cretton - HES-SO Valais
+ * Author: Fabian Cretton - OverLOD Project - HES-SO Valais
  * @param url The basic URL where Marmotta runs
  */
 function DataView(url) {
@@ -36,81 +18,49 @@ function DataView(url) {
     var HTTP = new HTTP_Client(url);
 
 		/**
-		 *  A client for Data Views
+		 * hello - testing web service GET
+		 * @param name any string
+		 * @param onsuccess Function is executed on success with string result data as parameter.
+		 * @param onfailure Function is executed on failure. It takes a ServerError object.(OPTIONAL)
 		 */
-		var dataViewClient = new DataViewClient(options.dataViewPath) ;
+	 this.hello = function(name,onsuccess,onfailure) {
+				var params = {name:name};
+				HTTP.get(options.dataViewPath.path + "/hello",params,null, "text/plain; charset=utf8",{200:function(data){if(onsuccess) onsuccess(data);
+						console.debug("query returned successful");},
+						"default":function(err,response){if(onfailure)onfailure(new ServerError(err,response.status));else throw new Error(err)}
+				});
+		}
 
-		this.dataViewClient = {
-				/**
-				 * hello - testing web service GET
-				 * @param name any string
-				 * @param onsuccess Function is executed on success with string result data as parameter.
-				 * @param onfailure Function is executed on failure. It takes a ServerError object.(OPTIONAL)
-				 */
-				hello : function(name,onsuccess,onfailure) {
-						dataViewClient.hello(name,onsuccess,onfailure);
-				},
+ 		/**
+		 * getDataView - getting data from a DataView
+		 * @param name of the data view
+		 * @param queryParams: a javascrip object arrays of parameters that should be added to the query string.
+		 *				those parameters are predefined for the SPARQL query corresponding to the 'viewName'
+		 * @param onsuccess Function is executed on success with string result data as parameter.
+		 * @param onfailure Function is executed on failure. It takes a ServerError object.(OPTIONAL)
+		 */
+		this.getDataView = function(viewName,queryParams,resultMimeType,onsuccess,onfailure) {
+				var params = {viewName:viewName};
+				if (queryParams != null)
+					$.extend(params, queryParams);
 				
-				/**
-				 * getDataView - getting data from a DataView
-				 * @param name of the data view
-				 * @param onsuccess Function is executed on success with string result data as parameter.
-				 * @param onfailure Function is executed on failure. It takes a ServerError object.(OPTIONAL)
-				 */
-				getDataView : function(viewName,resultMimeType,onsuccess,onfailure) {
-						dataViewClient.getDataView(viewName,resultMimeType,onsuccess,onfailure);
-				},
-				
-				/**
-				 * getDataViewsList - getting the list of DataViews
-				 * @param onsuccess Function is executed on success with string result data as parameter.
-				 * @param onfailure Function is executed on failure. It takes a ServerError object.(OPTIONAL)
-				 */
-				getDataViewsList : function(onsuccess,onfailure) {
-						dataViewClient.getDataViewsList(onsuccess,onfailure);
-				}
-				
+				HTTP.get(options.dataViewPath.path,params,null, resultMimeType,{200:function(data){if(onsuccess) onsuccess(data);
+						console.debug("query returned successful");},
+						"default":function(err,response){if(onfailure)onfailure(new ServerError(err,response.status));else throw new Error(err)}
+				});
 		}
 		
-		    /**
-     * Internal "External Data Sources" implementation
-     * @param options
-     */
-    function DataViewClient(options) {
-        this.hello = function(name,onsuccess,onfailure) {
-						var params = {name:name};
-            HTTP.get(options.path + "/hello",params,null, "text/plain; charset=utf8",{200:function(data){if(onsuccess) onsuccess(data);
-								console.debug("query returned successful");},
-                "default":function(err,response){if(onfailure)onfailure(new ServerError(err,response.status));else throw new Error(err)}
-            });
-        }
-
-				this.getDataView = function(viewName,resultMimeType,onsuccess,onfailure) {
-						var params = {viewName:viewName};
-            HTTP.get(options.path,params,null, resultMimeType,{200:function(data){if(onsuccess) onsuccess(data);
-								console.debug("query returned successful");},
-                "default":function(err,response){if(onfailure)onfailure(new ServerError(err,response.status));else throw new Error(err)}
-            });
-        }
-				
-				this.getDataViewsList = function(onsuccess,onfailure) {
-            HTTP.get(options.path + "/list",null,null, null,{200:function(data){if(onsuccess) onsuccess(data);
-								console.debug("query returned successful");},
-                "default":function(err,response){if(onfailure)onfailure(new ServerError(err,response.status));else throw new Error(err)}
-            });
-        }
-				
-/*				
-        this.saveEDSParams4FileURLAndImport = function(EDSType, url,mimetype,context,onsuccess,onfailure) {
-            var params = {EDSType:EDSType,url:url,context:context};
-             HTTP.post(options.path+"/EDSParams",params,null,mimetype,{
-                 200:function(data){if(onsuccess)onsuccess(data,url,mimetype,context);;
-								 console.debug("saveEDSParams4FileURLAndImport successful");},
-								"default":function(err,response){if(onfailure)onfailure(new ServerError(err,response.status));else throw new Error(err)}
-             });
-        }	
-	*/	
-    }		
+		/**
+		 * getDataViewsList - getting the list of DataViews
+		 * @param onsuccess Function is executed on success with string result data as parameter.
+		 * @param onfailure Function is executed on failure. It takes a ServerError object.(OPTIONAL)
+		 */
+		this.getDataViewsList = function(onsuccess,onfailure) {
+				HTTP.get(options.dataViewPath.path + "/list",null,null, null,{200:function(data){if(onsuccess) onsuccess(data);
+						console.debug("query returned successful");},
+						"default":function(err,response){if(onfailure)onfailure(new ServerError(err,response.status));else throw new Error(err)}
+				});
+		}
 		
     /**
      * A ServerError Object
@@ -169,6 +119,7 @@ function DataView(url) {
         function doRequest(method,path,queryParams,data,mimetype,callbacks) {
             mimetype = mimetype ||  "application/json";
             var _url = url+path+buildQueryParms(queryParams);
+						console.debug("url:" + _url) ;
              var request = createRequest();
              request.onreadystatechange = function() {
                 if (request.readyState==4) {

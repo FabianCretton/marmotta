@@ -87,12 +87,17 @@ public class ExtDataSourcesWebServiceTest {
         when().
         	post("/EDS/EDSParams?url=http://foo.rdf");
         
-/*        			
-		  RestAssured.expect()
-		  	  .statusCode(200)
-		  	  .contentType("application/json") 
-		  .when()
-		      .get("/EDS/EDSParams");
-		      */
     }
+    
+    @Test
+    public void testDeleteEDSParamsWithBadURL(){
+    	/*
+    	 * testing only the delete from the EDS List, not the deletion of the context -> deleteGraph=false 
+    	 */
+        expect().
+        	statusCode(500).
+        when().
+        	delete("/EDS/EDSParams?graph=http://foo.rdf&deleteGraph=false");
+        
+    }    
 }

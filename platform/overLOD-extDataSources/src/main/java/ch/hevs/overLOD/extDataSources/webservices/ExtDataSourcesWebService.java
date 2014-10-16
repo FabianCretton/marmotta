@@ -21,18 +21,23 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 import java.util.TreeMap;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
+import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
+import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
@@ -41,6 +46,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.HttpClient;
@@ -50,6 +56,7 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.marmotta.client.ClientConfiguration;
 import org.apache.marmotta.client.util.HTTPUtil;
+import org.apache.marmotta.platform.core.api.triplestore.ContextService;
 import org.openrdf.model.URI;
 import org.slf4j.Logger;
 
@@ -72,6 +79,9 @@ public class ExtDataSourcesWebService {
     @Inject
     private ExtDataSources extDSService;
 
+    @Inject
+    private ContextService contextService;
+    
     @Context
     UriInfo uri ;
     
@@ -174,13 +184,13 @@ public class ExtDataSourcesWebService {
     }
     
     /**
-     * Save one External Data Source parameters and launch the asynchronous loading process
+     * Add a new External Data Source parameters and launch the asynchronous loading process
      * 
      * @param headerAuth http authentication
      * @param contentType mimetype of the data source
+     * @param context Named Graph to which the file is uploaded in the store
      * @param EDSType a predefined value for the type of EDS - so far only 'RDFFile' is used 
      * @param url address of the file to be uploaded
-     * @param context Named Graph to which the file is uploaded in the store
      * @HTTP 200 in case the query was executed successfully
      * @HTTP 500 in case there was an error during the execution
      * @return a string which is either a validation message or an error message
@@ -192,40 +202,25 @@ public class ExtDataSourcesWebService {
     @Path("/EDSParams")
     public Response addEDS(@HeaderParam("Authorization") String headerAuth, @HeaderParam("Content-Type") String contentType, @QueryParam("EDSType") String EDSType, @QueryParam("url") String url, @QueryParam("context") String context) {
         log.debug("POST addEDS Content-type:{}, EDSType:{}, url:{} context:{}", contentType, EDSType, url, context);
-
-        /*
-         * Test that the URL is accessible
-         * The Marmotta's import web service does a test with only "conn.connect()"
-         * But that test will succeed if the host is accessible, which doesn't mean that the 
-         * specific resource is accessible.
-         * So here I test with a request to the "HEAD"
-         * Handling a timeout could improve this test
-         */
-        URL finalUrl = null;
-        HttpURLConnection conn = null ;
-        log.debug("testing URL: "+ url) ;
-        try {
-			finalUrl = new URL(url);
-            conn = (HttpURLConnection) finalUrl.openConnection();
-            //conn.connect();
-            conn.setRequestMethod("HEAD");
-            int responseCode = conn.getResponseCode() ;
-            if (responseCode != 200) {
-                log.debug("status different than 200: "+responseCode) ;
-                return Response.status(502).entity("the URL passed as argument cannot be retrieved: " + responseCode).build();
-            } 
-		} catch (MalformedURLException e) {
-            log.debug("malformed URL: "+ e.getMessage()) ;
-            return Response.status(502).entity("the URL passed as argument cannot be retrieved - malformed URL").build();
-        } catch(IOException e) {
-            log.debug("IOException: "+ e.getMessage()) ;
-            return Response.status(502).entity("the URL passed as argument cannot be retrieved:"+ e.getMessage()).build();
-        } finally {
-        	if (conn != null)
-        		conn.disconnect();
-        }
+        // System.out.println("POST addEDS Content-type: "+contentType+", EDSType: "+EDSType+", url: "+ url + ", context: "+ context);
         
-        log.debug("test passed") ;
+        if (StringUtils.isBlank(context))
+            return Response.status(Status.NOT_ACCEPTABLE).entity("Web Service call error: missing 'context' parameter").build();
+        if (StringUtils.isBlank(url))
+            return Response.status(Status.NOT_ACCEPTABLE).entity("Web Service call error: missing 'url' parameter").build();
+        if (StringUtils.isBlank(EDSType))
+            return Response.status(Status.NOT_ACCEPTABLE).entity("Web Service call error: missing 'EDSType' parameter").build();
+        
+        /*
+         * Test that  this context does not exist already
+         */
+        if (contextService.getContext(context) != null) // if the context don't exist, null is returned
+			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error - a new EDS can't be created with an existing context").build();
+        
+        Response testErrorResponse = testRDFFileURLAccess(url) ;
+        if (testErrorResponse != null) // if a Response is sent back, an error occured accessing the url
+        	return testErrorResponse ;
+        
         // Start the import
         try {
 			callImportWS(headerAuth, contentType, url, context) ;
@@ -235,10 +230,211 @@ public class ExtDataSourcesWebService {
         	
         // If import started, save the EDS parameters
         try {
-			return Response.ok(extDSService.saveEDSParams(EDSType, url, context)).build();
+			return Response.ok(extDSService.addEDSParams(EDSType, contentType, url, context)).build();
 		} catch (ExtDataSourcesException e) {
 			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error - The import is running, but an error occured while saving External Data Source parameters: "+ e.getMessage()).build();
 		}
     }
 
+    /*
+     * For a file: test that the URL is accessible
+     * The Marmotta's import web service does a test with only "conn.connect()"
+     * But that test will succeed if the host is accessible, 
+     * which doesn't mean that the specific resource is accessible.
+     * So here I test with a request to the "HEAD"
+     * Handling a timeout could improve this test
+     * 
+     * Return a Response object in case the URL is not accessible, otherwise 'null' which means here 'success'
+     */
+    private Response testRDFFileURLAccess(String url)
+    {
+	    log.debug("testing URL: "+ url) ;
+    	// System.out.println("test:" + url) ;
+	    
+	    URL finalUrl = null;
+	    HttpURLConnection conn = null ;
+	    try {
+			finalUrl = new URL(url);
+	        conn = (HttpURLConnection) finalUrl.openConnection();
+	        //conn.connect();
+	        conn.setRequestMethod("HEAD");
+	        int responseCode = conn.getResponseCode() ;
+	        if (responseCode != 200) {
+	            log.debug("status different than 200: "+responseCode) ;
+	            return Response.status(502).entity("the URL passed as argument cannot be retrieved: " + responseCode).build();
+	        } 
+		} catch (MalformedURLException e) {
+	        log.debug("malformed URL: "+ e.getMessage()) ;
+	        return Response.status(502).entity("the URL passed as argument cannot be retrieved - malformed URL").build();
+	    } catch(IOException e) {
+	        log.debug("IOException: "+ e.getMessage()) ;
+	        return Response.status(502).entity("the URL passed as argument cannot be retrieved:"+ e.getMessage()).build();
+	    } finally {
+	    	if (conn != null)
+	    		conn.disconnect();
+	    }
+	    
+    	// System.out.println("test successful") ;
+	    log.debug("test successful") ;
+	    
+	    return null ;
+    }
+    /**
+     * Update an existing External Data Source with the current content of the external file
+     * Achieved by deleting the existing context, then launching the asynchronous loading process
+     * 
+     * @param headerAuth http authentication
+     * @param context Named Graph that identifies the EDS and correspond to its context in the store
+     * @HTTP 200 in case the query was executed successfully
+     * @HTTP 500 in case there was an error during the execution
+     * @return a string which is either a validation message or an error message
+     */
+    /*
+     * the update is made of a delete and than an add
+     * to ensure that all triples are updated in the corresponding context
+     */
+    @PUT
+    @Path("/EDSParams")
+    public Response updateEDS(@HeaderParam("Authorization") String headerAuth, @QueryParam("context") String context) {
+        log.debug("PUT updateEDS context:{}", context);
+
+        if (StringUtils.isBlank(context))
+            return Response.status(Status.NOT_ACCEPTABLE).entity("Web Service call error: missing 'context' parameter").build();
+
+        // EDSType (and mime-type ?) must be read from the stored EDS
+        EDSParams theEDSParams = extDSService.getEDSParams(context) ;
+        
+        if (theEDSParams == null)
+			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error - No EDS correspond to the context '" + context + "'").build();
+        
+        Response testErrorResponse = testRDFFileURLAccess(theEDSParams.url) ;
+        if (testErrorResponse != null) // if a Response is sent back, an error occured accessing the url
+        	return testErrorResponse ;
+        
+    	// System.out.println("test passed") ;
+
+        // First delete the existing Context
+		if (!contextService.removeContext(context))
+            return Response.status(500).entity("Update aborted, the existing context can't be deleted: "+context).build();
+		
+        // Then re-start the import
+        try {
+			callImportWS(headerAuth, theEDSParams.contentType, theEDSParams.url, theEDSParams.context) ;
+		} catch (ExtDataSourcesException e) {
+			return Response.status(Status.INTERNAL_SERVER_ERROR).entity(e.getMessage()).build();
+		}
+
+		return Response.ok("The EDS is currently updating").build();
+    }
+    
+	/**
+	  * Deletes a EDS: its configuration and its named graph (if deleteGraph=true)
+	*
+	 * @param context the graph (context) of the EDS, which is used to identify the EDS
+	 * @param deleteGraph if false: delete only the EDS configuration, otherwise delete the graph (context) as well 
+     * @HTTP 200 in case the delete was executed successfully
+     * @HTTP 500 in case there was an error during the execution
+	 * @return
+	 */
+    @DELETE
+    @Path("/EDSParams")
+    public Response delete(@QueryParam("context") String context, @QueryParam("deleteGraph") boolean deleteGraph) {
+    	log.debug("Delete EDS - delete graph:"+ deleteGraph + " - context:"+context) ;
+
+    	boolean deleteSuccessful = true ;
+    	
+        if (StringUtils.isBlank(context)) {
+            return Response.status(Status.NOT_ACCEPTABLE).entity("Web Service call error: missing 'context' parameter").build();
+        } else {
+        	if (deleteGraph)
+        		deleteSuccessful = contextService.removeContext(context);
+        }
+
+        // Delete the EDS parameters
+        try {
+        	if (deleteGraph && !deleteSuccessful)
+        		return Response.ok(extDSService.deleteEDSParams(context) + " \n(BUT an error occured to delete the context! Please delete it manually.)").build();
+        	else
+        		return Response.ok(extDSService.deleteEDSParams(context)).build();
+		} catch (ExtDataSourcesException e) {
+			log.debug("extDSService.deleteEDSParams Exception:"+ e.getMessage()) ;
+			
+			if (deleteGraph)
+			{
+				if (deleteSuccessful)
+					return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error - The graph has been deleted but the EDS can't be deleted from the EDS list: "+ e.getMessage()).build();
+				else
+					return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error - The graph could not ge deleted and the EDS can't be deleted from the EDS list: "+ e.getMessage()).build();
+			}
+			else
+				return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error - The EDS can't be deleted from the EDS list: "+ e.getMessage()).build();
+		}
+    }
+    
+    /**
+     * Get the list of outdated data sources
+     * ...to be corrected
+     * @return Return ...
+     */
+    @GET
+    @Path("/checkUpdates")
+    @Produces("application/json")
+    public Response checkEDS() {
+        log.debug("GET checkEDS");
+
+        try {
+			TreeMap<String, EDSParams> mappings = extDSService.getEDSParamsList() ;
+			
+	        Iterator<String> it = mappings.keySet().iterator();
+
+	        while(it.hasNext()){
+	          String context = (String)it.next();
+	          String url = ((EDSParams) mappings.get(context)).url ; 
+	          checkEDSDate(url) ;
+	        }
+		} catch (ExtDataSourcesException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+        
+        return Response.ok().entity("blabla").build();
+    }
+    
+    private void checkEDSDate(String url)
+    {
+        // String url = "http://www.websemantique.ch/people/rdf/blabla.rdf" ;
+        
+    	System.out.println("checkEDS-1:" + url) ;
+	    
+	    URL finalUrl = null;
+	    HttpURLConnection conn = null ;
+	    try {
+			finalUrl = new URL(url);
+	        conn = (HttpURLConnection) finalUrl.openConnection();
+	        conn.setRequestMethod("HEAD");
+	        long lastModified = conn.getLastModified() ;
+	        System.out.println("Last-Modified: " + new Date(lastModified) + " (" + lastModified + ")");
+	        /*
+	        int responseCode = conn.getResponseCode() ;
+	        if (responseCode != 200) {
+	            log.debug("status different than 200: "+responseCode) ;
+	            return Response.status(502).entity("the URL passed as argument cannot be retrieved: " + responseCode).build();
+	        } 
+	        */
+		} catch (MalformedURLException e) {
+	        log.debug("malformed URL: "+ e.getMessage()) ;
+	        //return Response.status(502).entity("the URL passed as argument cannot be retrieved - malformed URL").build();
+	    } catch(IOException e) {
+	        log.debug("IOException: "+ e.getMessage()) ;
+	        //return Response.status(502).entity("the URL passed as argument cannot be retrieved:"+ e.getMessage()).build();
+	    } finally {
+	    	if (conn != null)
+	    		conn.disconnect();
+	    }
+	    
+    	// System.out.println("test successful") ;
+	    log.debug("test successful") ;
+	    
+        // return Response.ok().entity("blabla").build();
+    }    
 }

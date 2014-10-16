@@ -1,25 +1,8 @@
 <!--
+Web interface to manage Data Views
 
-    Licensed to the Apache Software Foundation (ASF) under one
-    or more contributor license agreements. See the NOTICE file
-    distributed with this work for additional information
-    regarding copyright ownership. The ASF licenses this file
-    to you under the Apache License, Version 2.0 (the
-    "License"); you may not use this file except in compliance
-    with the License.  You may obtain a copy of the License at
-
-        http://www.apache.org/licenses/LICENSE-2.0
-
-    Unless required by applicable law or agreed to in writing, software
-    distributed under the License is distributed on an "AS IS" BASIS,
-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    See the License for the specific language governing permissions and
-    limitations under the License.
-
-		                $.each(data, function(prefix, namespace) {
-                	appendPrefix(prefix, namespace);
-                });     
-
+Author: Fabian Cretton - OverLOD Project - HES-SO Valais
+ 
 -->
 <html>
 <head>
@@ -32,8 +15,10 @@
     <script type="text/javascript">
 			function showViewDetails(viewName)
 			{
+				// Display the view name
 				$("#dataViewName").html("Data view name: " + viewName);
 
+				// Display the view's query 
 				$.get("../query?viewName=" + viewName, function(data) {
 						$("#dataViewQuery").html("Data view query:<BR>" + data);
 				}).error(function(jqXhr, textStatus, error) {
@@ -83,29 +68,42 @@
 				container.append($("<a class='data_view_text_link'></a>").text("Test WS - getDataView call CSV").click(function(){
 					testWSgetDataViewCSV() ;
 				 }));
-				 
+
+ 				container.append($("<p></p>").append("SPARQL with parameters")) ;
+
+				container.append($("<a class='data_view_text_link'></a>").text("Test WS - getDataView with parameters").click(function(){
+					testWSgetDataWithParameters() ;
+				 }));
+
 				 loader.hide() ;
 				 
 				function testWScallHello()
 				{
-					dataView.dataViewClient.hello('John', success, failure) ;
+					dataView.hello('John', success, failure) ;
 				}
 
 				function testWSgetDataViewJSON()
 				{
-					dataView.dataViewClient.getDataView('allTriplesLimit10', "application/sparql-results+json", successJSON, failure) ;
+					dataView.getDataView('allTriplesLimit10', null, "application/sparql-results+json", successJSON, failure) ;
 				}
 
 				function testWSgetDataViewXML()
 				{
-					dataView.dataViewClient.getDataView('allTriplesLimit10', "application/sparql-results+xml", success, failure) ;
+					dataView.getDataView('allTriplesLimit10', null, "application/sparql-results+xml", success, failure) ;
 				}
 
 				function testWSgetDataViewCSV()
 				{
-					dataView.dataViewClient.getDataView('allTriplesLimit10', "text/csv", success, failure) ;
+					dataView.getDataView('allTriplesLimit10', null,"text/csv", success, failure) ;
 				}
 
+				function testWSgetDataWithParameters()
+				{
+						var queryParams = {p_areaURI:encodeURIComponent("http://dbpedia.org/resource/Ayent"), p_year:"2002"};
+
+						dataView.getDataView('UC_allValuesOneAreaOneYear_params', queryParams,"text/csv", success, failure) ;
+				}
+				
 				function success(result)
 				{
 				alert('success:' + result) ;

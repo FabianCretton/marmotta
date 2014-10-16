@@ -14,12 +14,23 @@ import java.util.TreeMap;
 public class EDSParamsList {
 
 	//public Map<String,EDSParams> EDSParamsSortedMap = new TreeMap<String,EDSParams>();
-	public TreeMap<String,EDSParams> EDSParamsSortedMap = new TreeMap<String,EDSParams>();
+	private TreeMap<String,EDSParams> EDSParamsSortedMap = new TreeMap<String,EDSParams>();
 	
 	public EDSParamsList() // needed for Jackson read/write operations
 	{
 	}
 
+	// test if an EDSParams exist for that context
+	public boolean exists(String context)
+	{
+		return EDSParamsSortedMap.containsKey(context) ;
+	}
+	
+	public TreeMap<String,EDSParams> getList()
+	{
+		return EDSParamsSortedMap ; 
+	}
+	
 	/**
 	 * Adding one aEDSParams to the sorted map
 	 * if an entry already exists, remove that old version first
@@ -32,5 +43,29 @@ public class EDSParamsList {
 		EDSParamsSortedMap.remove(aEDSParams.context) ;
 	
 	EDSParamsSortedMap.put(aEDSParams.context, aEDSParams) ;
+	}
+	
+	public EDSParams get(String context)
+	{
+		if (EDSParamsSortedMap.containsKey(context))
+			return EDSParamsSortedMap.get(context) ;
+		
+		return null ;
+	}
+	/**
+	 * Deleting one aEDSParams identified by a 'context'
+	 * 
+	 * @param aEDSParams
+	 * @return true if deleted, false if not (meaning that the specified context was not found in the list)
+	 */
+	public boolean deleteEDSParams(String EDSContext)
+	{
+	if (EDSParamsSortedMap.containsKey(EDSContext))
+		{
+		EDSParamsSortedMap.remove(EDSContext) ;
+		return true;
+		}
+	else
+		return false ;
 	}
 }

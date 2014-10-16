@@ -37,14 +37,27 @@ public interface ExtDataSources {
      * Save one External Data Source (EDS) parameters
      * 
      * @param EDSType the type of EDS
+     * @param contentType the mime type of the data
      * @param url the url of the EDS
      * @param context the context (Named Graph) where this EDS is saved locally
      * 
-     * @return 
+     * @return a string confirming the operation succeeded 
      * @throws ExtDataSourcesException 
-     * 
-     * @see #doThat()
      */
-    public String saveEDSParams(String EDSType, String url, String context) throws ExtDataSourcesException;
+    public String addEDSParams(String EDSType, String contentType, String url, String context) throws ExtDataSourcesException;
 
+    /**
+     * Get the EDSParams identified by the context
+     * @param context the identifier of the EDS
+     * @return an EDSParams object or null if not found
+     */
+    public EDSParams getEDSParams(String context) ;
+    
+    /**
+     * Delete and EDS from the list
+     * @param context the context (Named Graph) where this EDS is saved locally, which is its identifier
+     * @return a string confirming the operation succeeded
+     * @throws ExtDataSourcesException
+     */
+    public String deleteEDSParams(String context) throws ExtDataSourcesException ;
 }

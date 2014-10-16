@@ -10,6 +10,7 @@ package ch.hevs.overLOD.extDataSources.EDSParams;
 
 public class EDSParams {
 	public String EDSType ;
+	public String contentType ;
 	public String url ;
 	public String context ;
 
@@ -17,9 +18,10 @@ public class EDSParams {
 	{
 	}
 
-	public EDSParams(String EDSType, String url, String context)
+	public EDSParams(String EDSType, String contentType, String url, String context)
 	{
 		this.EDSType = EDSType ;
+		this.contentType = contentType ;
 		this.url = url ;
 		this.context = context ;
 	}

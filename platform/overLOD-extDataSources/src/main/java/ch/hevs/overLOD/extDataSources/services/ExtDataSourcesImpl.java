@@ -61,14 +61,19 @@ public class ExtDataSourcesImpl implements ExtDataSources {
     {
 		ensureEDSParamsListIsLoaded() ;
         
-        return cacheEDSParamsList.EDSParamsSortedMap ;
+        return cacheEDSParamsList.getList() ;
     }
     
     @Override
-    public String saveEDSParams(String EDSType, String url, String context) throws ExtDataSourcesException {
-        log.debug("saving EDSParams EDSType:{}, url:{} context:{}...", EDSType, url, context);
+    public String addEDSParams(String EDSType, String contentType, String url, String context) throws ExtDataSourcesException {
+        log.debug("saving EDSParams EDSType:{}, contentType:{} url:{} context:{}...", EDSType, contentType, url, context);
         
-        EDSParams aEDSParams = new EDSParams(EDSType, url, context) ;
+        // an EDS is read only, once created it will not change, if params change (the url, the mimetype), than a new EDS has to be created
+        // so ensure here that an EDS is not saved with an existing context (the identifier)
+        if (cacheEDSParamsList.exists(context))
+        	throw new ExtDataSourcesException("A new EDS can't be added with a context already used for another one") ;
+        	
+        EDSParams aEDSParams = new EDSParams(EDSType, contentType, url, context) ;
         
         ensureEDSParamsListIsLoaded() ;
         
@@ -78,6 +83,28 @@ public class ExtDataSourcesImpl implements ExtDataSources {
         log.debug("saving EDSParams EDSType:{}, url:{} context:{}...done!", EDSType, url, context);
         
         return "Parameters saved for External Data Source: " + context ;
+    }
+
+    
+    @Override
+    public EDSParams getEDSParams(String context)
+    {
+    	return cacheEDSParamsList.get(context) ;
+    }
+
+    @Override
+    public String deleteEDSParams(String context) throws ExtDataSourcesException {
+        log.debug("delete EDSParams identified by context:{}", context);
+        
+        ensureEDSParamsListIsLoaded() ;
+        
+        if (!cacheEDSParamsList.deleteEDSParams(context)) // context not found in the list
+        	throw new ExtDataSourcesException("Context '"+ context + "' not found in the list of EDS") ;
+        
+       	serializeObjectToJSON(cacheEDSParamsList, configurationService.getHome() + "/EDSParamsList.json") ;
+        log.debug("saving EDSParams list after a delete...done!");
+        
+        return "EDS deleted from External Data Sources list: " + context ;
     }
 
     /**

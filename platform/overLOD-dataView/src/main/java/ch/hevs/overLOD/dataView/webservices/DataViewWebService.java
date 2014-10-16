@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.TreeMap;
 
 import javax.enterprise.context.ApplicationScoped;
@@ -33,6 +34,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
@@ -94,17 +96,20 @@ public class DataViewWebService {
 
     /**
      * Get data from a predefined DataView (a predefined query)
+     * <br> 
+     * If any parameter is expected for the underlying query, they should be passed as other query params and they should start with the "p_" prefix
      * @param headerAuth http authentication
-     * @param acceptMimeType mimeType of sparql results, as "application/sparql-results+json", "application/sparql-results+xml", "text/csv"
+     * @param acceptMimeType the required mimeType of sparql results can be passed as Header\Accept or in the 'format' params, exemples are "application/sparql-results+json", "application/sparql-results+xml", "text/csv"
      * @param viewName the name of the predefined view that is requested
+     * @param mimeTypeAsParam the required mimeType of sparql results can be passed as Header\Accept or in the 'format' params, exemples are "application/sparql-results+json", "application/sparql-results+xml", "text/csv" 
      * @HTTP 200 in case the query was executed successfully
      * @HTTP 500 in case there was an error during the execution
      * @return the view's query result in the format passed as argument in case of success, otherwise an error message
      */
     @GET
-    public Response getDataView(@HeaderParam("Authorization") String headerAuth, @HeaderParam("Accept") String acceptMimeType, @QueryParam("viewName") String viewName, @QueryParam("format") String mimeTypeAsParam) {
+    public Response getDataView(@HeaderParam("Authorization") String headerAuth, @HeaderParam("Accept") String acceptMimeType, @Context UriInfo uriInfo, @QueryParam("viewName") String viewName, @QueryParam("format") String mimeTypeAsParam) {
     	// System.out.println("getDataView - authorization: "+ headerAuth) ;
-    	System.out.println("getCSVDataView - viewName: "+ viewName) ;
+    	System.out.println("getDataView - viewName: "+ viewName) ;
     	GoogleAnalytics ga = new GoogleAnalytics("UA-55572183-1");
     	System.out.println("googleAnalytics: "+ uri.getBaseUri().toString()+"dataView?viewName=" + viewName) ;
     	ga.post(new PageViewHit(uri.getBaseUri().toString()+"dataView?viewName=" + viewName, "test"));
@@ -141,6 +146,23 @@ public class DataViewWebService {
         catch (IOException e) {
 			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error accessing the query file corresponding to the view '"+viewName+"' !").build();
 		}
+
+        // Dynamically read if there is any parameter for the SPARQL query
+        // they are identified as they should start with "p_"
+        // those parameters are predefined 'string' in the .sparql query file
+        // and so far, a simple replace() will be done with the specific value
+        MultivaluedMap<String, String> queryParams = uriInfo.getQueryParameters(); 
+        Iterator<String> it = queryParams.keySet().iterator();
+
+        while(it.hasNext()){
+          String paramName = (String)it.next();
+          
+          if (paramName.startsWith("p_"))
+        	  query = query.replace(paramName, queryParams.getFirst(paramName)) ;
+        }
+
+        //System.out.println("final query:" + query) ;
+        log.debug("final query:" + query) ;
         
        return getDataViewImpl(headerAuth, mimeType, query) ;
     }
@@ -159,7 +181,6 @@ public class DataViewWebService {
      * or in the "format" parameter
      * 
      * This method could thus be deleted, kept so far for testing if needed
-     */
     @GET
     @Path("/CSV")
     public Response getCSVDataView(@QueryParam("viewName") String viewName) {
@@ -188,7 +209,8 @@ public class DataViewWebService {
         
        return getDataViewImpl(null, "text/CSV", query) ;
     }
-    
+         */
+
     /**
      * Get the SPARQL query corresponding to a predefined DataView (a predefined query)
      * @param viewName the name of the predefined view that is requested
