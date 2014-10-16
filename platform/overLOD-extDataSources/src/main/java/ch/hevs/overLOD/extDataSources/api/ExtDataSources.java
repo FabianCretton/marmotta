@@ -44,7 +44,7 @@ public interface ExtDataSources {
      * @return a string confirming the operation succeeded 
      * @throws ExtDataSourcesException 
      */
-    public String addEDSParams(String EDSType, String contentType, String url, String context) throws ExtDataSourcesException;
+    public String addEDSParams(String EDSType, String contentType, String url, String context, String timeStamp) throws ExtDataSourcesException;
 
     /**
      * Get the EDSParams identified by the context

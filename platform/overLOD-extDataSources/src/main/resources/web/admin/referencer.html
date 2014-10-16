@@ -59,16 +59,16 @@ Author: Fabian Cretton - OverLOD Project - HES-SO Valais
 				
 				function checkEDS()
 				{
-				$.ajax({
-							url: '../checkUpdates',
-							type: 'GET',
-							success: function(result) {
-									alert(result) ;
-							},
-             error: function (jqXhr, textStatus, error) {
-									alert("ERROR checkEDS EDS (" + jqXhr.status +'-' + jqXhr.statusText  + ": " + jqXhr.responseText + ")");
-						}
-					});
+				$.get( "../checkUpdates", function(result) {
+					alert( "success:" + result);
+					})
+					.fail(function(jqXhr, textStatus, error) {
+							alert("ERROR checkEDS EDS (" + jqXhr.status +'-' + jqXhr.statusText  + ": " + jqXhr.responseText + ")");
+					})
+					/*
+					.always(function() {
+					alert( "finished" );
+					});*/
 				}
 				
         $(document).ready(function(){

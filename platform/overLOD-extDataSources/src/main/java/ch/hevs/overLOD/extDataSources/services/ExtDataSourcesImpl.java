@@ -65,7 +65,7 @@ public class ExtDataSourcesImpl implements ExtDataSources {
     }
     
     @Override
-    public String addEDSParams(String EDSType, String contentType, String url, String context) throws ExtDataSourcesException {
+    public String addEDSParams(String EDSType, String contentType, String url, String context, String timeStamp) throws ExtDataSourcesException {
         log.debug("saving EDSParams EDSType:{}, contentType:{} url:{} context:{}...", EDSType, contentType, url, context);
         
         // an EDS is read only, once created it will not change, if params change (the url, the mimetype), than a new EDS has to be created
@@ -73,7 +73,7 @@ public class ExtDataSourcesImpl implements ExtDataSources {
         if (cacheEDSParamsList.exists(context))
         	throw new ExtDataSourcesException("A new EDS can't be added with a context already used for another one") ;
         	
-        EDSParams aEDSParams = new EDSParams(EDSType, contentType, url, context) ;
+        EDSParams aEDSParams = new EDSParams(EDSType, contentType, url, context, timeStamp) ;
         
         ensureEDSParamsListIsLoaded() ;
         

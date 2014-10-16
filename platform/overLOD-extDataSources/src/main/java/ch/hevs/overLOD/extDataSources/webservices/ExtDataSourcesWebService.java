@@ -42,6 +42,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
@@ -217,10 +218,16 @@ public class ExtDataSourcesWebService {
         if (contextService.getContext(context) != null) // if the context don't exist, null is returned
 			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error - a new EDS can't be created with an existing context").build();
         
-        Response testErrorResponse = testRDFFileURLAccess(url) ;
-        if (testErrorResponse != null) // if a Response is sent back, an error occured accessing the url
-        	return testErrorResponse ;
+        long timeStamp = 0 ;
         
+        try
+        {
+        timeStamp = testRDFFileURLAccess(url) ;
+        }
+        catch(ExtDataSourcesException e){
+        	return Response.status(502).entity(e.getMessage()).build();
+        }
+
         // Start the import
         try {
 			callImportWS(headerAuth, contentType, url, context) ;
@@ -230,7 +237,7 @@ public class ExtDataSourcesWebService {
         	
         // If import started, save the EDS parameters
         try {
-			return Response.ok(extDSService.addEDSParams(EDSType, contentType, url, context)).build();
+			return Response.ok(extDSService.addEDSParams(EDSType, contentType, url, context, String.valueOf(timeStamp))).build();
 		} catch (ExtDataSourcesException e) {
 			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error - The import is running, but an error occured while saving External Data Source parameters: "+ e.getMessage()).build();
 		}
@@ -244,12 +251,15 @@ public class ExtDataSourcesWebService {
      * So here I test with a request to the "HEAD"
      * Handling a timeout could improve this test
      * 
-     * Return a Response object in case the URL is not accessible, otherwise 'null' which means here 'success'
+     * Throws an exception if the url can't be accessed
+     * Return the long value of conn.getLastModified(): milliseconds since 01.01.1970
      */
-    private Response testRDFFileURLAccess(String url)
+    private long testRDFFileURLAccess(String url) throws ExtDataSourcesException
     {
 	    log.debug("testing URL: "+ url) ;
     	// System.out.println("test:" + url) ;
+	    
+	    long lastModified = 0 ; 
 	    
 	    URL finalUrl = null;
 	    HttpURLConnection conn = null ;
@@ -261,14 +271,21 @@ public class ExtDataSourcesWebService {
 	        int responseCode = conn.getResponseCode() ;
 	        if (responseCode != 200) {
 	            log.debug("status different than 200: "+responseCode) ;
-	            return Response.status(502).entity("the URL passed as argument cannot be retrieved: " + responseCode).build();
+	            // return Response.status(502).entity("the URL passed as argument cannot be retrieved: " + responseCode).build();
+	            throw new ExtDataSourcesException("the URL passed as argument cannot be retrieved: " + responseCode);
 	        } 
+	        // getLastModified() can't be used to test if the file exists or not
+	        // -> if the URL don't exist, getLastModified just returns 0, with no error
+	        lastModified = conn.getLastModified() ; // milliseconds since 01.01.1970
+
 		} catch (MalformedURLException e) {
 	        log.debug("malformed URL: "+ e.getMessage()) ;
-	        return Response.status(502).entity("the URL passed as argument cannot be retrieved - malformed URL").build();
+	        // return Response.status(502).entity("the URL passed as argument cannot be retrieved - malformed URL").build();
+            throw new ExtDataSourcesException("the URL passed as argument cannot be retrieved - malformed URL (" + e.getMessage() + ")");
 	    } catch(IOException e) {
 	        log.debug("IOException: "+ e.getMessage()) ;
-	        return Response.status(502).entity("the URL passed as argument cannot be retrieved:"+ e.getMessage()).build();
+	        // return Response.status(502).entity("the URL passed as argument cannot be retrieved:"+ e.getMessage()).build();
+            throw new ExtDataSourcesException("the URL passed as argument cannot be retrieved - IO Exception (" + e.getMessage() + ")");
 	    } finally {
 	    	if (conn != null)
 	    		conn.disconnect();
@@ -277,7 +294,7 @@ public class ExtDataSourcesWebService {
     	// System.out.println("test successful") ;
 	    log.debug("test successful") ;
 	    
-	    return null ;
+	    return lastModified ;
     }
     /**
      * Update an existing External Data Source with the current content of the external file
@@ -292,6 +309,8 @@ public class ExtDataSourcesWebService {
     /*
      * the update is made of a delete and than an add
      * to ensure that all triples are updated in the corresponding context
+     * Currently, this is a 'forced' update, the update is performed even if the timeStamp of the source is not more recent than
+     * the timeStamp of the local copy (EDS param).
      */
     @PUT
     @Path("/EDSParams")
@@ -307,9 +326,15 @@ public class ExtDataSourcesWebService {
         if (theEDSParams == null)
 			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error - No EDS correspond to the context '" + context + "'").build();
         
-        Response testErrorResponse = testRDFFileURLAccess(theEDSParams.url) ;
-        if (testErrorResponse != null) // if a Response is sent back, an error occured accessing the url
-        	return testErrorResponse ;
+        long timeStamp = 0 ;
+        
+        try
+        {
+        timeStamp = testRDFFileURLAccess(theEDSParams.url) ;
+        }
+        catch(ExtDataSourcesException e){
+        	return Response.status(502).entity(e.getMessage()).build();
+        }
         
     	// System.out.println("test passed") ;
 
@@ -323,6 +348,8 @@ public class ExtDataSourcesWebService {
 		} catch (ExtDataSourcesException e) {
 			return Response.status(Status.INTERNAL_SERVER_ERROR).entity(e.getMessage()).build();
 		}
+        
+        // and update the timestamp might be necessary
 
 		return Response.ok("The EDS is currently updating").build();
     }
@@ -378,12 +405,13 @@ public class ExtDataSourcesWebService {
      */
     @GET
     @Path("/checkUpdates")
-    @Produces("application/json")
+    //@Produces("application/json")
     public Response checkEDS() {
         log.debug("GET checkEDS");
 
+        TreeMap<String, EDSParams> mappings = null ;
         try {
-			TreeMap<String, EDSParams> mappings = extDSService.getEDSParamsList() ;
+			mappings = extDSService.getEDSParamsList() ;
 			
 	        Iterator<String> it = mappings.keySet().iterator();
 
@@ -397,7 +425,9 @@ public class ExtDataSourcesWebService {
 			e1.printStackTrace();
 		}
         
-        return Response.ok().entity("blabla").build();
+        //String res = "yes!" ;
+        // return Response.ok(res, MediaType.TEXT_PLAIN).build();
+        return Response.ok("yes-done!", MediaType.TEXT_PLAIN).build();
     }
     
     private void checkEDSDate(String url)
@@ -412,7 +442,7 @@ public class ExtDataSourcesWebService {
 			finalUrl = new URL(url);
 	        conn = (HttpURLConnection) finalUrl.openConnection();
 	        conn.setRequestMethod("HEAD");
-	        long lastModified = conn.getLastModified() ;
+	        long lastModified = conn.getLastModified() ; // milliseconds since 01.01.1970
 	        System.out.println("Last-Modified: " + new Date(lastModified) + " (" + lastModified + ")");
 	        /*
 	        int responseCode = conn.getResponseCode() ;
