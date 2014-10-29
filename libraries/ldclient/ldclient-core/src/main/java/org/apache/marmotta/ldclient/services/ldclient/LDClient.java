@@ -117,7 +117,6 @@ public final class LDClient implements LDClientService {
             }
         }
 
-
         retrievalSemaphore = new Semaphore(config.getMaxParallelRequests());
 
         if (config.getHttpClient() != null) {
@@ -210,7 +209,7 @@ public final class LDClient implements LDClientService {
             if(!config.isExcludedUri(resource)) {
 
                 Endpoint endpoint = getEndpoint(resource);
-
+                
                 if(endpoint != null) {
                     DataProvider provider = getDataProvider(endpoint);
                     if(provider != null) {
@@ -269,7 +268,10 @@ public final class LDClient implements LDClientService {
     @Override
     public Endpoint getEndpoint(String resource) {
         for(Endpoint endpoint : endpoints) {
+        	{
+        		System.out.println("getEndpoint, check: "+ endpoint.getName()) ;
             if (endpoint.handles(resource)) return endpoint;
+        	}
         }
 
         return null;

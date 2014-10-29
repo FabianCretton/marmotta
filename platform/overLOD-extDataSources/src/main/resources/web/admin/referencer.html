@@ -14,6 +14,7 @@ Author: Fabian Cretton - OverLOD Project - HES-SO Valais
     <script type="text/javascript" src="js/widgets/extDataSourcesList.js"></script>
     <script type="text/javascript">
 				var listEditor = null ; // object needed for the "refresh list" button
+				var extDataSourcesClient = new ExtDataSources(_SERVER_URL);
 				
 				function updateEDS(context, url)
 				{
@@ -21,20 +22,23 @@ Author: Fabian Cretton - OverLOD Project - HES-SO Valais
 						return ;
 					}				
 					
-					//var loader =$("<img style='position: relative;top: 4px;margin-left: 10px;' src='../public/img/loader/ajax-loader_small.gif'>");
-					//loader.show() ;
-					$.ajax({
-							url: '../EDSParams?context='+ encodeURIComponent(context),
-							type: 'PUT',
-							success: function(result) {
-									alert("UPDATING in progress: upload is running; you can control the running import tasks on $LMF/core/admin/tasks.html");
-							},
-             error: function (jqXhr, textStatus, error) {
-									alert("ERROR updating EDS (" + jqXhr.statusText + ": " + jqXhr.responseText + ")");
-						}
-					});
-					
-					//loader.hide() ;
+					listEditor.loader.show() ;
+
+					extDataSourcesClient.updateEDS(context, successUpdateEDS, failureUpdateEDS) ;
+				}
+
+				function successUpdateEDS(result)
+				{
+						alert(result + "\n\nUpload is running to update the EDS; you can control the running import tasks on /core/admin/tasks.html");
+						
+						listEditor.loader.hide() ;
+				}
+				
+				function failureUpdateEDS(jqXhr)
+				{
+						alert("ERROR updating EDS (" + jqXhr.statusText + ": " + jqXhr.responseText + ")");
+						
+						listEditor.loader.hide() ;
 				}
 				
 				function deleteEDS(context)
@@ -43,32 +47,59 @@ Author: Fabian Cretton - OverLOD Project - HES-SO Valais
 						return ;
 					}				
 					
-					$.ajax({
-							// with 'DELETE', the query string parameters can't be passed as 'data'
-							url: '../EDSParams?context=' + encodeURIComponent(context) + '&deleteGraph=true',
-							type: 'DELETE',
-							success: function(result) {
-									alert(result) ;
-									listEditor.buildList() ; // refresh the list of EDS
-							},
-             error: function (jqXhr, textStatus, error) {
-									alert("ERROR deleting EDS (" + jqXhr.statusText + ": " + jqXhr.responseText + ")");
-						}
-					});
+					listEditor.loader.show() ;
+					
+					extDataSourcesClient.deleteEDS(context, successDeleteEDS, failureDeleteEDS) ;
+				}
+				
+				function successDeleteEDS(result)
+				{
+					alert(result) ;
+					listEditor.buildList() ; // refresh the list of EDS
+					listEditor.loader.hide() ;
+				}
+				
+				function failureDeleteEDS(jqXhr)
+				{
+						alert("ERROR deleting EDS (" + jqXhr.statusText + ": " + jqXhr.responseText + ")");
+						listEditor.loader.hide() ;
 				}
 				
 				function checkEDS()
 				{
-				$.get( "../checkUpdates", function(result) {
-					alert( "success:" + result);
-					})
-					.fail(function(jqXhr, textStatus, error) {
-							alert("ERROR checkEDS EDS (" + jqXhr.status +'-' + jqXhr.statusText  + ": " + jqXhr.responseText + ")");
-					})
-					/*
-					.always(function() {
-					alert( "finished" );
-					});*/
+					if (!confirm('Are you sure you want to check all EDS and launch updates if new data is available ?')) {
+						return ;
+					}				
+
+					listEditor.loader.show() ;
+					
+					extDataSourcesClient.checkEDSForUpdates(successCheckEDSForUpdates, failureCheckEDSForUpdates) ;
+				}
+				
+				function successCheckEDSForUpdates(result)
+				{
+					if (result.stringList.length > 0)
+						{
+						var updatedList = "" ;
+
+						$.each(result.stringList, function(index, string) {
+							updatedList += string + "\n" ;
+						});  								
+						
+						alert(result.stringList.length + " EDS are currently updating:\n" + updatedList + "\n\nYou can control the running import tasks on /core/admin/tasks.html") ;
+						listEditor.buildList() ; // refresh the list of EDS
+						}
+					else
+						alert("All EDS are up-to-date") ;
+						
+					listEditor.loader.hide() ;						
+				}
+				
+				function failureCheckEDSForUpdates(jqXhr)
+				{
+						alert("ERROR check EDS for updates (" + jqXhr.statusText + ": " + jqXhr.responseText + ")");
+						
+						listEditor.loader.hide() ;
 				}
 				
         $(document).ready(function(){
@@ -98,7 +129,7 @@ Author: Fabian Cretton - OverLOD Project - HES-SO Valais
 <h1>OverLOD Referencer</h1>
 <div id="EDSList_div"></div>
 <button onclick="javascript:listEditor.buildList();">Refresh List</button> 
-<button onclick="javascript:checkEDS();">checkEDS * test</button> 
+<button onclick="javascript:checkEDS();" style="float: right;">Update outdated EDS</button> 
 <div id="EDSEditor_div"></div>
 <!--###END_CONTENT###-->
 </body>

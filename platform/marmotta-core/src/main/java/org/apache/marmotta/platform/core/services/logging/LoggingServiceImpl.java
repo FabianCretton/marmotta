@@ -92,7 +92,7 @@ public class LoggingServiceImpl implements LoggingService {
     @PostConstruct
     public void initialize() {
         log.info("Apache Marmotta Logging Service starting up ...");
-        System.out.println("fab here") ;
+        //System.out.println("fab here") ;
         
         appenders = new HashMap<>();
 
@@ -304,7 +304,7 @@ public class LoggingServiceImpl implements LoggingService {
             logger.setAdditive(false);
             logger.setLevel(module.getCurrentLevel());
         	System.out.println("setLevel: " + module.getCurrentLevel()) ;
-
+// Fab: to test "run as server", I did comment out those lines which throw an exception as "appender" seems null
             for(LoggingOutput appender : module.getLoggingOutputs()) {
             	System.out.println("add appender: " + appender.getName()) ;
                 logger.addAppender(appenders.get(appender));

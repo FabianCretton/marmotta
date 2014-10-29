@@ -26,13 +26,9 @@ public interface DataView {
 
     public ArrayList<String> getDataViewsList() throws DataViewException ;
 	
-    /**
-     * Echoes <code>"Hello &lt;name&gt;"</code>.
-     * 
-     * @param name
-     *            the name to echo
-     * @return <code>"Hello &lt;name&gt;"</code>
-     */
-    public String helloWorld(String name);
+    public String saveDataView(String viewName, String query, boolean update)  throws DataViewException ;
 
+    public String deleteDataView(String viewName)  throws DataViewException ;
+    
+    public String getGoogleAnalyticsTrackingID() ;
 }

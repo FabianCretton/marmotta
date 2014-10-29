@@ -43,86 +43,81 @@ Author: Fabian Cretton - OverLOD Project - HES-SO Valais
 				var container = $("#"+id);
 				
 				// for debugging WS
-				var dataView = new DataView(host) ;
+				var dataViewClient = new DataView(host) ;
 				
 				container.append($("<h2></h2>").append("Data View - calls examples").append(loader));
 				
-				container.append($("<a class='data_view_text_link'></a>").text("Test WS - hello").click(function(){
-					testWScallHello() ;
-				 }));
-				 
-				container.append($("<p></p>").append("JSON")) ;
+				//container.append($("<p></p>").append("JSON")) ;
 
-				container.append($("<a class='data_view_text_link'></a>").text("Test WS - getDataView call JSON").click(function(){
-					testWSgetDataViewJSON() ;
+				container.append($("<a class='data_view_text_link'></a>").text("Test WS - getDataView call JSON: allTriplesLimit10").click(function(){
+					dataViewClient.getDataView('allTriplesLimit10', null, "application/sparql-results+json", successJSON, failure) ;
 				 }));
 
-				container.append($("<p></p>").append("SPARQL-XML")) ;
+				//container.append($("<p></p>").append("SPARQL-XML")) ;
 
-				container.append($("<a class='data_view_text_link'></a>").text("Test WS - getDataView call XML").click(function(){
-					testWSgetDataViewXML() ;
+				container.append($("<BR><a class='data_view_text_link'></a>").text("Test WS - getDataView call XML: allTriplesLimit10").click(function(){
+					dataViewClient.getDataView('allTriplesLimit10', null, "application/sparql-results+xml", successXML, failure) ;
 				 }));
 
-				container.append($("<p></p>").append("SPARQL-CSV")) ;
+				//container.append($("<p></p>").append("SPARQL-CSV")) ;
 
-				container.append($("<a class='data_view_text_link'></a>").text("Test WS - getDataView call CSV").click(function(){
-					testWSgetDataViewCSV() ;
+				container.append($("<BR><a class='data_view_text_link'></a>").text("Test WS - getDataView call CSV: allTriplesLimit10").click(function(){
+					dataViewClient.getDataView('allTriplesLimit10', null,"text/csv", success, failure) ;
 				 }));
 
- 				container.append($("<p></p>").append("SPARQL with parameters")) ;
+ 				//container.append($("<p></p>").append("SPARQL with parameters")) ;
 
-				container.append($("<a class='data_view_text_link'></a>").text("Test WS - getDataView with parameters").click(function(){
-					testWSgetDataWithParameters() ;
+				container.append($("<BR><a class='data_view_text_link'></a>").text("Test WS - getDataView with parameters: UC_allValuesOneAreaOneYear_params(Ayent - 2002)").click(function(){
+						var queryParams = {p_areaURI:encodeURIComponent("http://dbpedia.org/resource/Ayent"), p_year:"2002"};
+
+						dataViewClient.getDataView('UC_allValuesOneAreaOneYear_params', queryParams,"text/csv", success, failure) ;
+				 }));
+
+ 				//container.append($("<p></p>").append("Create new Data View")) ;
+
+				container.append($("<BR><a class='data_view_text_link'></a>").text("Test WS - New data view LIMIT 2").click(function(){
+					dataViewClient.addDataView('newTest', 'SELECT * WHERE {?s ?p ?o} LIMIT 2', success, failure) ;
+				 }));
+
+ 				//container.append($("<p></p>").append("Update 'newTest' Data View")) ;
+
+				container.append($("<BR><a class='data_view_text_link'></a>").text("Test WS - Update 'newTest' Data View LIMIT 3").click(function(){
+					dataViewClient.updateDataView('newTest', 'SELECT * WHERE {?s ?p ?o} LIMIT 3', success, failure) ;
+				 }));
+
+ 				container.append($("<BR><a class='data_view_text_link'></a>").text("Test WS - Delete 'newTest' Data View").click(function(){
+					dataViewClient.deleteDataView('newTest', success, failure) ;
 				 }));
 
 				 loader.hide() ;
-				 
-				function testWScallHello()
-				{
-					dataView.hello('John', success, failure) ;
-				}
 
-				function testWSgetDataViewJSON()
-				{
-					dataView.getDataView('allTriplesLimit10', null, "application/sparql-results+json", successJSON, failure) ;
-				}
-
-				function testWSgetDataViewXML()
-				{
-					dataView.getDataView('allTriplesLimit10', null, "application/sparql-results+xml", success, failure) ;
-				}
-
-				function testWSgetDataViewCSV()
-				{
-					dataView.getDataView('allTriplesLimit10', null,"text/csv", success, failure) ;
-				}
-
-				function testWSgetDataWithParameters()
-				{
-						var queryParams = {p_areaURI:encodeURIComponent("http://dbpedia.org/resource/Ayent"), p_year:"2002"};
-
-						dataView.getDataView('UC_allValuesOneAreaOneYear_params', queryParams,"text/csv", success, failure) ;
-				}
-				
 				function success(result)
 				{
-				alert('success:' + result) ;
+				alert('success: ' + result) ;
 				document.getElementById("queryResult").innerHTML= result; 
 				}
 
+				// ici reçu en text
+				function successXML(resultXML)
+				{
+				document.getElementById("queryResult").innerHTML= resultXML ; 
+				}
+			
+				// ici l'objet JSON reçu en text
 				function successJSON(resultJSON)
 				{
-				alert('success:' + resultJSON) ;
-
+				// alert('success:' + resultJSON) ;
+			
 				// Getting directly the results bindings:
 				var resParsed = JSON.parse(resultJSON).results.bindings ;
 
 				document.getElementById("queryResult").innerHTML= JSON.stringify(resParsed, null); 
 				}
 				
-				function failure(serverError)
+				function failure(jqXhr)
 				{
-				alert('error (' + serverError.name + '): ' + serverError.message) ;
+				//alert('error (' + serverError.name + '): ' + serverError.message) ;
+					alert("Server call ERROR (" + jqXhr.statusText + ": " + jqXhr.responseText + ")");
 				}
 			}
 				</script>

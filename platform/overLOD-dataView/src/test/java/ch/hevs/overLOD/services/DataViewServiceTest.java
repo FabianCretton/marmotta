@@ -38,12 +38,6 @@ public class DataViewServiceTest {
         myService = marmotta.getService(DataView.class);
     }
 
-    @Test
-    public void testHelloWorld() {
-        Assert.assertEquals("Hello You", myService.helloWorld("You"));
-        Assert.assertEquals("Hello Fernández", myService.helloWorld("Fernández"));
-    }
-
     @AfterClass
     public static void tearDown() {
         marmotta.shutdown();

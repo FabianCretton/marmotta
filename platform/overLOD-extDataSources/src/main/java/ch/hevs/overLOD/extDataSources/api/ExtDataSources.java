@@ -60,4 +60,15 @@ public interface ExtDataSources {
      * @throws ExtDataSourcesException
      */
     public String deleteEDSParams(String context) throws ExtDataSourcesException ;
+    
+    /**
+     * Set a new value for the timeStamp of an EDS
+     * @param context  the context (Named Graph) where this EDS is saved locally, which is its identifier
+     * @param timeStamp a string representing the timeStamp
+     * @return true/false whether the value has been saved or not
+     */
+    public boolean setEDSParamsTimeStamp(String context, String timeStamp) throws ExtDataSourcesException ;
+    
+	public String importWithLDClient(String marmottaURL, String headerAuth, String LDClientType, String url, String context)  throws ExtDataSourcesException ;
+    
 }

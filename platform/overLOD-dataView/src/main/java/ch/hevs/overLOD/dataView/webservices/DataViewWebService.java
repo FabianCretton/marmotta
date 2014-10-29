@@ -21,6 +21,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -28,8 +29,11 @@ import java.util.TreeMap;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
+import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
+import javax.ws.rs.POST;
+import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
@@ -109,13 +113,21 @@ public class DataViewWebService {
     @GET
     public Response getDataView(@HeaderParam("Authorization") String headerAuth, @HeaderParam("Accept") String acceptMimeType, @Context UriInfo uriInfo, @QueryParam("viewName") String viewName, @QueryParam("format") String mimeTypeAsParam) {
     	// System.out.println("getDataView - authorization: "+ headerAuth) ;
-    	System.out.println("getDataView - viewName: "+ viewName) ;
-    	GoogleAnalytics ga = new GoogleAnalytics("UA-55572183-1");
-    	System.out.println("googleAnalytics: "+ uri.getBaseUri().toString()+"dataView?viewName=" + viewName) ;
-    	ga.post(new PageViewHit(uri.getBaseUri().toString()+"dataView?viewName=" + viewName, "test"));
-    	System.out.println("googleAnalytics Posted") ;
+        log.debug("Requesting DataView: {}", viewName);
+    	
+        String GoogleAnalyticsTrackingID = dataViewService.getGoogleAnalyticsTrackingID();
+        
+        if (GoogleAnalyticsTrackingID != null)
+        {
+        	GoogleAnalytics ga = new GoogleAnalytics(GoogleAnalyticsTrackingID) ;
+        	//ga.post(new PageViewHit(uri.getBaseUri().toString()+"dataView?viewName=" + viewName, "test"));
+        	ga.post(new PageViewHit("dataView?viewName=" + viewName, "test"));
+        	System.out.println("googleAnalytics posted with id:"+ GoogleAnalyticsTrackingID) ;
+        	log.debug("new PageViewHit for GoogleAnalytics, with trackingId:"+ GoogleAnalyticsTrackingID) ;
+        }
     	
     	String mimeType = acceptMimeType ;
+    	// System.out.println("mimeType: "+ mimeType) ;
     	
         if (StringUtils.isEmpty(acceptMimeType))
         	{	
@@ -133,9 +145,6 @@ public class DataViewWebService {
             // No name given? Invalid request.
             return Response.status(Status.BAD_REQUEST).entity("Missing Parameter 'viewName'").build();
         }
-        System.out.println("getDataView mimeType:"+mimeType) ;
-        
-        log.debug("Requesting DataView: {}", viewName);
         
         String query = null ;
         
@@ -158,59 +167,130 @@ public class DataViewWebService {
           String paramName = (String)it.next();
           
           if (paramName.startsWith("p_"))
-        	  query = query.replace(paramName, queryParams.getFirst(paramName)) ;
+			try {
+				query = query.replace(paramName, URLDecoder.decode(queryParams.getFirst(paramName), "UTF-8")) ;
+			} catch (UnsupportedEncodingException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
         }
 
-        //System.out.println("final query:" + query) ;
+        // System.out.println("final query:" + query) ;
         log.debug("final query:" + query) ;
         
        return getDataViewImpl(headerAuth, mimeType, query) ;
     }
 
     /**
-     * Get CSV data from a predefined DataView (a predefined query)
-     * @param viewName the name of the predefined view that is requested
+     * Save a new DataView: save a SPARQL query to a dataViewName.sparql file
+     * @param headerAuth http authentication
+     * @param viewName the name of the view which will be the name of the file, must be a non-existing name
+     * @param query the SPARQL query 
      * @HTTP 200 in case the query was executed successfully
      * @HTTP 500 in case there was an error during the execution
-     * @return the view's query result in the format passed as argument in case of success, otherwise an error message
+     * @return a success or error message
      */
-    /*
-     * This was done for client call purpose, when it was not possible to pass a header/accept to specify
-     * the expected mime type
-     * Now the GET getDataView() has been improved, and the mimetype can be passed either as "header/accept"
-     * or in the "format" parameter
-     * 
-     * This method could thus be deleted, kept so far for testing if needed
-    @GET
-    @Path("/CSV")
-    public Response getCSVDataView(@QueryParam("viewName") String viewName) {
-    	// System.out.println("getCSVDataView - viewName: "+ viewName) ;
+    @POST
+    public Response addDataView(@HeaderParam("Authorization") String headerAuth, @QueryParam("viewName") String viewName, @QueryParam("query") String query) {
+        log.debug("Adding DataView: {} - {}", viewName, query);
+        // System.out.println("Adding DataView:" + viewName) ;
+        
+        if (StringUtils.isEmpty(viewName)) {
+            log.warn("No viewName specified");
+            // No name given? Invalid request.
+            return Response.status(Status.BAD_REQUEST).entity("Missing Parameter 'viewName'").build();
+        }
+
+        if (StringUtils.isEmpty(query)) {
+            log.warn("No query specified");
+            // No name given? Invalid request.
+            return Response.status(Status.BAD_REQUEST).entity("Missing Parameter 'query'").build();
+        }
+
+        String saveRes = null ;
+		try {
+			if (dataViewService != null)
+				saveRes = dataViewService.saveDataView(viewName, query, false); // false for adding a new data view
+			else
+				return Response.status(Status.INTERNAL_SERVER_ERROR).entity("dataViewService not instanciated").build();
+		} catch (DataViewException e) {
+			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error while adding the '" + viewName + "' Data View: "+ e.getMessage()).build();
+		}
+
+        return Response.ok(saveRes).build();
+    }
+    
+    /**
+     * Update and existing DataView: save a SPARQL query to a dataViewName.sparql file
+     * @param headerAuth http authentication
+     * @param viewName the name of the view which will be the name of the file, must be a non-existing name
+     * @param query the SPARQL query 
+     * @HTTP 200 in case the query was executed successfully
+     * @HTTP 500 in case there was an error during the execution
+     * @return a success or error message
+     */
+    @PUT
+    public Response updateDataView(@HeaderParam("Authorization") String headerAuth, @QueryParam("viewName") String viewName, @QueryParam("query") String query) {
+        log.debug("Updating DataView: {} - {}", viewName, query);
+        // System.out.println("Updating DataView:" + viewName) ;
     	
         if (StringUtils.isEmpty(viewName)) {
             log.warn("No view specified");
             // No name given? Invalid request.
             return Response.status(Status.BAD_REQUEST).entity("Missing Parameter 'viewName'").build();
         }
-        
-        log.debug("Requesting DataView: {}", viewName);
-        
-    	// create a client configuration with the current WS uri's
-        // ClientConfiguration clientConfig = new ClientConfiguration(uri.getBaseUri().toString()) ;
-        
-        String query = null ;
-        
-        try
-        {
-        	query = readDataViewQuery(viewName) ;
-        }
-        catch (IOException e) {
-			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error accessing the query file corresponding to the view '"+viewName+"' !").build();
-		}
-        
-       return getDataViewImpl(null, "text/CSV", query) ;
-    }
-         */
 
+        if (StringUtils.isEmpty(query)) {
+            log.warn("No query specified");
+            // No name given? Invalid request.
+            return Response.status(Status.BAD_REQUEST).entity("Missing Parameter 'query'").build();
+        }
+
+        String saveRes = null ;
+		try {
+			if (dataViewService != null)
+				saveRes = dataViewService.saveDataView(viewName, query, true); // true for update
+			else
+				return Response.status(Status.INTERNAL_SERVER_ERROR).entity("dataViewService not instanciated").build();
+		} catch (DataViewException e) {
+			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error while updating the '" + viewName + "' Data View: "+ e.getMessage()).build();
+		}
+
+        return Response.ok(saveRes).build();
+    }  
+    
+    /**
+     * Delete a DataView
+     * @param headerAuth http authentication
+     * @param viewName the name of the view which will be the name of the file, must be a non-existing name
+     * @HTTP 200 in case the query was executed successfully
+     * @HTTP 500 in case there was an error during the execution
+     * @return a success or error message
+     */
+    @DELETE
+    public Response addDataView(@HeaderParam("Authorization") String headerAuth, @QueryParam("viewName") String viewName) {
+        log.debug("Deleting DataView: {}", viewName);
+        // System.out.println("Deleting DataView:" + viewName) ;
+        
+        if (StringUtils.isEmpty(viewName)) {
+            log.warn("No viewName specified");
+            // No name given? Invalid request.
+            return Response.status(Status.BAD_REQUEST).entity("Missing Parameter 'viewName'").build();
+        }
+
+        String saveRes = null ;
+		try {
+			if (dataViewService != null)
+				saveRes = dataViewService.deleteDataView(viewName);
+			else
+				return Response.status(Status.INTERNAL_SERVER_ERROR).entity("dataViewService not instanciated").build();
+		} catch (DataViewException e) {
+			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error while deleting the '" + viewName + "' Data View: "+ e.getMessage()).build();
+		}
+
+        return Response.ok(saveRes).build();
+    }    
+    
     /**
      * Get the SPARQL query corresponding to a predefined DataView (a predefined query)
      * @param viewName the name of the predefined view that is requested
@@ -274,14 +354,13 @@ public class DataViewWebService {
     }
     /*
      * actual implementation of getDataView
+     * to return the result of the SPARQL query associated to the DataView
      */
     public Response getDataViewImpl(String headerAuth, String acceptMimeType, String query) {
         // log.debug("Requesting DataView: {}", viewName);
     	
     	// create a client configuration with the current WS uri's
     	ClientConfiguration clientConfig = new ClientConfiguration(uri.getBaseUri().toString()) ;
-        
-        //String query = null ; // "SELECT ?s ?p WHERE {?s ?p ?o}" ; //  LIMIT 10" ;
         
         HttpClient httpClient = HTTPUtil.createClient(clientConfig);
 
@@ -474,9 +553,6 @@ public class DataViewWebService {
     public Response getDataViewsList() {
         log.debug("GET getDataViewsList");
 
-        // System.out.println("GET getDataViewsList");
-        
-        //TreeMap<String, String> mappings;
         ArrayList<String> dataViewsList ;
 		try {
 			dataViewsList = (dataViewService != null ? dataViewService.getDataViewsList() : new ArrayList<String>());
@@ -485,26 +561,5 @@ public class DataViewWebService {
 		}
 
         return Response.ok().entity(dataViewsList).build();
-    }
-    
-    /**
-     * hello call for GET testing purpose
-     * @param name
-     * @return
-     */
-    @GET
-    @Path("/hello")
-    @Produces("text/plain; charset=utf8")
-    public Response hello(@QueryParam("name") String name) {
-        if (StringUtils.isEmpty(name)) {
-            log.warn("No name given");
-            // No name given? Invalid request.
-            return Response.status(Status.BAD_REQUEST).entity("Missing Parameter 'name'").build();
-        }
-
-        log.debug("Sending regards to {}", name);
-        log.info("Sending regards to {}", name);
-        // Return the greeting.
-        return Response.ok(dataViewService.helloWorld(name)).build();
     }
 }

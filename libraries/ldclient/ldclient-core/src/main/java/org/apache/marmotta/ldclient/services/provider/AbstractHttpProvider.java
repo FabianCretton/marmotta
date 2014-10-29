@@ -99,7 +99,7 @@ public abstract class AbstractHttpProvider implements DataProvider {
      */
     @Override
     public ClientResponse retrieveResource(String resource, LDClientService client, Endpoint endpoint) throws DataRetrievalException {
-
+    	System.out.println("FC tests 3") ;
         try {
 
             String contentType;
@@ -137,6 +137,7 @@ public abstract class AbstractHttpProvider implements DataProvider {
                         get.setHeader("Accept-Language", "*"); // PoolParty compatibility
 
                         log.info("retrieving resource data for {} from '{}' endpoint, request URI is <{}>", new Object[]  {resource, getName(), get.getURI().toASCIIString()});
+                        System.out.println("retrieving resource data for "+ resource + " from "+getName()+" endpoint, request URI is <"+get.getURI().toASCIIString()+">");
 
                         handler.requestUrl = requestUrl;
                         List<String> additionalRequestUrls = client.getClient().execute(get, handler);
@@ -155,7 +156,9 @@ public abstract class AbstractHttpProvider implements DataProvider {
             if (expiresDate == null) {
                 expiresDate = new Date(System.currentTimeMillis() + defaultExpires * 1000);
             }
-
+            
+            System.out.println("expires: "+ expiresDate) ;
+            
             long min_expires = System.currentTimeMillis() + client.getClientConfiguration().getMinimumExpiry() * 1000;
             if (expiresDate.getTime() < min_expires) {
                 log.info("expiry time returned by request lower than minimum expiration time; using minimum time instead");
@@ -165,21 +168,26 @@ public abstract class AbstractHttpProvider implements DataProvider {
             if(log.isInfoEnabled()) {
                 log.info("retrieved {} triples for resource {}; expiry date: {}", new Object[]{handler.triples.size(), resource, expiresDate});
             }
+            System.out.println("retrieved "+handler.triples.size()+" triples") ;
 
             ClientResponse result = new ClientResponse(handler.httpStatus, handler.triples);
             result.setExpires(expiresDate);
             return result;
         } catch (RepositoryException e) {
             log.error("error while initialising Sesame repository; classpath problem?",e);
+            System.out.println("error while initialising Sesame repository; classpath problem: "+ e.getMessage());
             throw new DataRetrievalException("error while initialising Sesame repository; classpath problem?",e);
         } catch (ClientProtocolException e) {
             log.error("HTTP client error while trying to retrieve resource {}: {}", resource, e.getMessage());
+            System.out.println("HTTP client error while trying to retrieve resource: "+ e.getMessage());
             throw new DataRetrievalException("I/O error while trying to retrieve resource "+resource,e);
         } catch (IOException e) {
             log.error("I/O error while trying to retrieve resource {}: {}", resource, e.getMessage());
+            System.out.println("I/O error while trying to retrieve resource: "+ e.getMessage());
             throw new DataRetrievalException("I/O error while trying to retrieve resource "+resource,e);
         } catch(RuntimeException ex) {
             log.error("Unknown error while trying to retrieve resource {}: {}", resource, ex.getMessage());
+            System.out.println("Unknown error while trying to retrieve resource: "+ ex.getMessage());
             throw new DataRetrievalException("Unknown error while trying to retrieve resource "+resource,ex);
         }
 
@@ -232,12 +240,18 @@ public abstract class AbstractHttpProvider implements DataProvider {
         public List<String> handleResponse(HttpResponse response) throws ClientProtocolException, IOException {
             ArrayList<String> requestUrls = new ArrayList<String>();
 
+            System.out.println("in handleResponse") ;
             if (response.getStatusLine().getStatusCode() >= 200 && response.getStatusLine().getStatusCode() < 400) {
+            	System.out.println("status 200") ;
             	final HttpEntity entity = response.getEntity();
             	if (entity == null)
+            	{
+                	System.out.println("no content returned") ;
             		throw new IOException("no content returned by Linked Data resource " + resource);
-
+            	}
+            	
 	            if (!isValidContentType(entity.getContentType().getValue().split(";")[0], endpoint)) {
+                	System.out.println("invalid content returned") ;
 	                // FIXME: here was get.abort()
 	            	throw new IOException("invalid content returned by Linked Data resource " + resource + ": "
 	            			+ entity.getContentType().getValue());
@@ -252,8 +266,11 @@ public abstract class AbstractHttpProvider implements DataProvider {
                     } else if (entity.getContentType() != null) {
                         parseContentType = entity.getContentType().getValue().split(";")[0];
                     }
+                    
+                	System.out.println("parseContentType:"+ parseContentType) ;
 
                     InputStream in = entity.getContent();
+                    System.out.println("input stream:" + in.toString()) ;
                     try {
 
                         List<String> urls = parseResponse(resource, requestUrl, triples, in, parseContentType);
@@ -279,6 +296,8 @@ public abstract class AbstractHttpProvider implements DataProvider {
                 }
                 EntityUtils.consume(entity);
             } else if(response.getStatusLine().getStatusCode() == 500 || response.getStatusLine().getStatusCode() == 503  || response.getStatusLine().getStatusCode() == 504) {
+            	System.out.println("status 500") ;
+            	
                 this.httpStatus = response.getStatusLine().getStatusCode();
 
                 Header retry = response.getFirstHeader("Retry-After");
@@ -295,6 +314,7 @@ public abstract class AbstractHttpProvider implements DataProvider {
 
             } else {
                 log.error("the HTTP request failed (status: {})", response.getStatusLine());
+            	System.out.println("status else:" + response.getStatusLine()) ;
                 throw new ClientProtocolException("the HTTP request failed (status: " + response.getStatusLine() + ")");
             }
 

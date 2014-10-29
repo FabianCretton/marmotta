@@ -1,1 +1,2 @@
 org.apache.marmotta.ldclient.endpoint.rdf.LinkedDataEndpoint
+org.apache.marmotta.ldclient.endpoint.rdf.RDFFileEndpoint

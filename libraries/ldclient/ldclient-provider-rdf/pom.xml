@@ -54,7 +54,6 @@
             <groupId>org.apache.marmotta</groupId>
             <artifactId>ldclient-core</artifactId>
         </dependency>
-
         <dependency>
             <groupId>org.openrdf.sesame</groupId>
             <artifactId>sesame-rio-rdfjson</artifactId>

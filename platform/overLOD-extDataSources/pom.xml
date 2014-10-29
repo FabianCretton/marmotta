@@ -139,7 +139,22 @@
             <groupId>com.fasterxml.jackson.module</groupId>
             <artifactId>jackson-module-jaxb-annotations</artifactId>
         </dependency>
-        
+        <!--  For LDClient -->
+        <dependency>
+		    <groupId>org.apache.marmotta</groupId>
+		    <artifactId>ldclient-api</artifactId>
+		    <version>${project.version}</version>
+		</dependency>
+		<dependency>
+		    <groupId>org.apache.marmotta</groupId>
+		    <artifactId>ldclient-core</artifactId>
+		    <version>${project.version}</version>
+		</dependency>
+		<dependency>
+		    <groupId>org.apache.marmotta</groupId>
+		    <artifactId>ldclient-provider-rdf</artifactId>
+		    <version>${project.version}</version>
+		</dependency>
         <!-- Front-end -->
         <dependency>
             <groupId>org.webjars</groupId>

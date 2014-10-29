@@ -1,5 +1,4 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements. See the NOTICE file
  * distributed with this work for additional information
  * regarding copyright ownership. The ASF licenses this file
@@ -42,6 +41,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.GenericEntity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
@@ -62,6 +62,7 @@ import org.openrdf.model.URI;
 import org.slf4j.Logger;
 
 import ch.hevs.overLOD.extDataSources.EDSParams.EDSParams;
+import ch.hevs.overLOD.extDataSources.EDSParams.StringListForWSReturn;
 import ch.hevs.overLOD.extDataSources.api.ExtDataSources;
 import ch.hevs.overLOD.extDataSources.exceptions.ExtDataSourcesException;
 
@@ -78,7 +79,7 @@ public class ExtDataSourcesWebService {
     private Logger log;
     
     @Inject
-    private ExtDataSources extDSService;
+    private ExtDataSources edsService;
 
     @Inject
     private ContextService contextService;
@@ -102,10 +103,11 @@ public class ExtDataSourcesWebService {
     @Produces("application/json")
     public Response getEDSParamsList() {
         log.debug("GET getEDSParamsList");
+        // System.out.println("GET getEDSParamsList");
 
         TreeMap<String, EDSParams> mappings;
 		try {
-			mappings = (extDSService != null ? extDSService.getEDSParamsList() : new TreeMap<String,EDSParams>());
+			mappings = (edsService != null ? edsService.getEDSParamsList() : new TreeMap<String,EDSParams>());
 		} catch (ExtDataSourcesException e) {
 			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error while retrieving External Data Sources list: "+ e.getMessage()).build();
 		}
@@ -131,7 +133,7 @@ public class ExtDataSourcesWebService {
      * return true if ok, otherwise throws an exception
      * throws ExtDataSourcesException
      */
-    private Boolean callImportWS(String headerAuth, String contentType, String url, String context) throws ExtDataSourcesException
+    private Boolean callImportWS4RDFFile(String headerAuth, String contentType, String url, String context) throws ExtDataSourcesException
     {
     	// create a client configuration with the current WS uri's
         clientConfig = new ClientConfiguration(uri.getBaseUri().toString()) ;
@@ -185,7 +187,10 @@ public class ExtDataSourcesWebService {
     }
     
     /**
-     * Add a new External Data Source parameters and launch the asynchronous loading process
+     * Add a new External Data Source parameters
+     * Depending on the type (EDSType), different actions are taken:
+     * 	RDFFile: launch the asynchronous loading process based on the Import web service
+     *  LinkedData: call LDClient for linked data resource
      * 
      * @param headerAuth http authentication
      * @param contentType mimetype of the data source
@@ -197,14 +202,18 @@ public class ExtDataSourcesWebService {
      * @return a string which is either a validation message or an error message
      */
     /*
-     * data load is based on the 'import' web service
+     * The timestamp:
+     * - for an RDF file, it does sometimes work, other times not: for instance geoNames resources
+     * don't have an HTTP last-modified, but the rdf file itself does contain a date triple, this hasn't been used sofar
+     * - for a Linked Data resoure, it seems no HTTP last-modified is available for DBPedia, but 
+     * also the 303 redirect should be handled, so this is let for later 
      */
     @POST
     @Path("/EDSParams")
     public Response addEDS(@HeaderParam("Authorization") String headerAuth, @HeaderParam("Content-Type") String contentType, @QueryParam("EDSType") String EDSType, @QueryParam("url") String url, @QueryParam("context") String context) {
         log.debug("POST addEDS Content-type:{}, EDSType:{}, url:{} context:{}", contentType, EDSType, url, context);
-        // System.out.println("POST addEDS Content-type: "+contentType+", EDSType: "+EDSType+", url: "+ url + ", context: "+ context);
-        
+        System.out.println("POST addEDS Content-type: "+contentType+", EDSType: "+EDSType+", url: "+ url + ", context: "+ context);
+       
         if (StringUtils.isBlank(context))
             return Response.status(Status.NOT_ACCEPTABLE).entity("Web Service call error: missing 'context' parameter").build();
         if (StringUtils.isBlank(url))
@@ -219,32 +228,44 @@ public class ExtDataSourcesWebService {
 			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error - a new EDS can't be created with an existing context").build();
         
         long timeStamp = 0 ;
-        
+
+        // test the URL Access, and at the same time get a timestamp if available
         try
         {
-        timeStamp = testRDFFileURLAccess(url) ;
+        timeStamp = testURLAccess(url) ;
         }
         catch(ExtDataSourcesException e){
-        	return Response.status(502).entity(e.getMessage()).build();
+        	return Response.status(Status.BAD_GATEWAY).entity(e.getMessage()).build();
         }
+
 
         // Start the import
         try {
-			callImportWS(headerAuth, contentType, url, context) ;
+        	switch(EDSType)
+        	{
+        	case "RDFFile":
+        		// test LDClient on RDF file
+        		edsService.importWithLDClient(uri.getBaseUri().toString(), headerAuth, "LinkedData", url, context) ;
+    			//// callImportWS4RDFFile(headerAuth, contentType, url, context) ;
+    			break ;
+        	case "LinkedData":
+        		edsService.importWithLDClient(uri.getBaseUri().toString(), headerAuth, "LinkedData", url, context) ;
+        		break ;
+        	}
 		} catch (ExtDataSourcesException e) {
 			return Response.status(Status.INTERNAL_SERVER_ERROR).entity(e.getMessage()).build();
 		}
         	
-        // If import started, save the EDS parameters
+        // If import done or started, save the EDS parameters
         try {
-			return Response.ok(extDSService.addEDSParams(EDSType, contentType, url, context, String.valueOf(timeStamp))).build();
+			return Response.ok(edsService.addEDSParams(EDSType, contentType, url, context, String.valueOf(timeStamp))).build();
 		} catch (ExtDataSourcesException e) {
 			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error - The import is running, but an error occured while saving External Data Source parameters: "+ e.getMessage()).build();
 		}
     }
 
     /*
-     * For a file: test that the URL is accessible
+     * For a URL: test that the URL is accessible
      * The Marmotta's import web service does a test with only "conn.connect()"
      * But that test will succeed if the host is accessible, 
      * which doesn't mean that the specific resource is accessible.
@@ -252,23 +273,27 @@ public class ExtDataSourcesWebService {
      * Handling a timeout could improve this test
      * 
      * Throws an exception if the url can't be accessed
+     * 
      * Return the long value of conn.getLastModified(): milliseconds since 01.01.1970
+     * if that value is '0', return the long value of conn.getExpiration()
      */
-    private long testRDFFileURLAccess(String url) throws ExtDataSourcesException
+    private long testURLAccess(String url) throws ExtDataSourcesException
     {
 	    log.debug("testing URL: "+ url) ;
-    	// System.out.println("test:" + url) ;
 	    
-	    long lastModified = 0 ; 
+	    long timestamp = 0 ; 
 	    
 	    URL finalUrl = null;
 	    HttpURLConnection conn = null ;
 	    try {
 			finalUrl = new URL(url);
+			// System.out.println("try open url: "+ url) ;
 	        conn = (HttpURLConnection) finalUrl.openConnection();
 	        //conn.connect();
 	        conn.setRequestMethod("HEAD");
 	        int responseCode = conn.getResponseCode() ;
+	        //System.out.println("responseCode: "+ responseCode) ;
+	        
 	        if (responseCode != 200) {
 	            log.debug("status different than 200: "+responseCode) ;
 	            // return Response.status(502).entity("the URL passed as argument cannot be retrieved: " + responseCode).build();
@@ -276,8 +301,16 @@ public class ExtDataSourcesWebService {
 	        } 
 	        // getLastModified() can't be used to test if the file exists or not
 	        // -> if the URL don't exist, getLastModified just returns 0, with no error
-	        lastModified = conn.getLastModified() ; // milliseconds since 01.01.1970
-
+	        timestamp = conn.getLastModified() ; // milliseconds since 01.01.1970
+	        log.debug("Last modified: " + timestamp) ;
+	        System.out.println("Last Modified (" + url + "): " + timestamp) ;
+	        
+	        if (timestamp == 0) // no "last-modified", take "expires" instead
+	        {
+	        	timestamp = conn.getExpiration() ;
+	        	log.debug("Last modified not set, use 'expires' instead: " + timestamp) ;
+		        System.out.println("Last modified not set, use 'expires' instead: " + new Date(timestamp));
+	        }
 		} catch (MalformedURLException e) {
 	        log.debug("malformed URL: "+ e.getMessage()) ;
 	        // return Response.status(502).entity("the URL passed as argument cannot be retrieved - malformed URL").build();
@@ -291,10 +324,9 @@ public class ExtDataSourcesWebService {
 	    		conn.disconnect();
 	    }
 	    
-    	// System.out.println("test successful") ;
-	    log.debug("test successful") ;
+	    log.debug("URL test successful") ;
 	    
-	    return lastModified ;
+	    return timestamp ;
     }
     /**
      * Update an existing External Data Source with the current content of the external file
@@ -321,7 +353,7 @@ public class ExtDataSourcesWebService {
             return Response.status(Status.NOT_ACCEPTABLE).entity("Web Service call error: missing 'context' parameter").build();
 
         // EDSType (and mime-type ?) must be read from the stored EDS
-        EDSParams theEDSParams = extDSService.getEDSParams(context) ;
+        EDSParams theEDSParams = edsService.getEDSParams(context) ;
         
         if (theEDSParams == null)
 			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error - No EDS correspond to the context '" + context + "'").build();
@@ -330,28 +362,66 @@ public class ExtDataSourcesWebService {
         
         try
         {
-        timeStamp = testRDFFileURLAccess(theEDSParams.url) ;
+        	timeStamp = testURLAccess(theEDSParams.url) ;
         }
         catch(ExtDataSourcesException e){
-        	return Response.status(502).entity(e.getMessage()).build();
+        	return Response.status(Status.BAD_GATEWAY).entity(e.getMessage()).build();
         }
         
-    	// System.out.println("test passed") ;
-
-        // First delete the existing Context
-		if (!contextService.removeContext(context))
-            return Response.status(500).entity("Update aborted, the existing context can't be deleted: "+context).build();
-		
-        // Then re-start the import
-        try {
-			callImportWS(headerAuth, theEDSParams.contentType, theEDSParams.url, theEDSParams.context) ;
-		} catch (ExtDataSourcesException e) {
+        // update the data in the store
+        try
+        {
+        	updateEDSinStore(headerAuth, theEDSParams) ;
+        }
+        catch (ExtDataSourcesException e) {
 			return Response.status(Status.INTERNAL_SERVER_ERROR).entity(e.getMessage()).build();
 		}
         
-        // and update the timestamp might be necessary
-
-		return Response.ok("The EDS is currently updating").build();
+        // udpate time stamp, if it fails, the call still succeeds but an error message
+        // is appended to the success message
+       	String updateTimeStampErrorMsg = updateTimeStamp(theEDSParams, timeStamp) ;
+        
+		return Response.ok("The EDS is currently updating." + updateTimeStampErrorMsg).build();
+    }
+    
+    /**
+     * Update an EDS: delete the context, reload the file
+     * @param headerAuth the header authentication passed to the web service call
+     * @param theEDSParams the EDSParams to update
+     * @throws ExtDataSourcesException
+     */
+    private void updateEDSinStore(String headerAuth, EDSParams theEDSParams) throws ExtDataSourcesException
+    {
+	    // First delete the existing Context
+		if (!contextService.removeContext(theEDSParams.context))
+			throw new ExtDataSourcesException("Update aborted, the existing context can't be deleted: "+theEDSParams.context) ;
+		
+		
+	    // Then re-start the import
+	    try {
+			callImportWS4RDFFile(headerAuth, theEDSParams.contentType, theEDSParams.url, theEDSParams.context) ;
+		} catch (ExtDataSourcesException e) {
+			throw new ExtDataSourcesException(e.getMessage()) ;
+		}
+    }
+    
+    /**
+     *  Update the time stamp of an EDS
+     * @param theEDSParams
+     * @return an empty string if successful, otherwise a WARNING message
+     */
+    private String updateTimeStamp(EDSParams theEDSParams, long newTimeStamp)
+    {
+    long localTimeStamp = Long.valueOf(theEDSParams.timeStamp) ;
+    if (newTimeStamp != localTimeStamp)
+		try {
+			if (!edsService.setEDSParamsTimeStamp(theEDSParams.context, String.valueOf(newTimeStamp)))
+				return " WARNING: the timeStamp of the EDS could not be updated!" ;
+		} catch (ExtDataSourcesException e) {
+			return " WARNING: the timeStamp of the EDS could not be updated (" + e.getMessage() + ")" ;
+		}
+    
+    return "" ;
     }
     
 	/**
@@ -380,9 +450,9 @@ public class ExtDataSourcesWebService {
         // Delete the EDS parameters
         try {
         	if (deleteGraph && !deleteSuccessful)
-        		return Response.ok(extDSService.deleteEDSParams(context) + " \n(BUT an error occured to delete the context! Please delete it manually.)").build();
+        		return Response.ok(edsService.deleteEDSParams(context) + " \n(BUT an error occured to delete the context! Please delete it manually.)").build();
         	else
-        		return Response.ok(extDSService.deleteEDSParams(context)).build();
+        		return Response.ok(edsService.deleteEDSParams(context)).build();
 		} catch (ExtDataSourcesException e) {
 			log.debug("extDSService.deleteEDSParams Exception:"+ e.getMessage()) ;
 			
@@ -399,72 +469,98 @@ public class ExtDataSourcesWebService {
     }
     
     /**
-     * Get the list of outdated data sources
-     * ...to be corrected
-     * @return Return ...
+     * Check the list of EDS, and launch the update of outdated ones
+     * 
+     * Currently two kind of timestamps are handled: either a "last-update" or an "expires"
+     * All those timestamps are milliseconds since 1.1.1970
+     * In this simple version, this is differenciated by testing if the timestamp is more recent than today:
+     * - if yes, timestamp is a past date, it is considered a "last-update" and so the current timestamp of the
+     * 		original resource needs to be retrieved
+     * - if no, timestamp is a futur date, it is considered as "expires" value and so no update is needed
+     * 		when that timestamp will be tested after the "expiry date", the original resource will then be checked
+     * 		This mechanism was needed as for DBPedia, the "expires" date does change everyday - certainly as an automatic setting,
+     * 		but we don't want to update the data everyday so we wait until the "expires" date is passed.
+     * 		Anyway this is not effective enough as it does not mean that the DBPedia resource did effectively change
+     * 		So just for trials purpose.
+     * 
+     * @param headerAuth http authentication
+     * @return Return a list of updated EDS, an empty list if all EDS were up-to-date
      */
-    @GET
+    @PUT
     @Path("/checkUpdates")
-    //@Produces("application/json")
-    public Response checkEDS() {
+    @Produces("application/json")
+    public Response checkEDSUpdates(@HeaderParam("Authorization") String headerAuth) {
         log.debug("GET checkEDS");
 
+        StringListForWSReturn updatedEDSList = new StringListForWSReturn() ;
+
         TreeMap<String, EDSParams> mappings = null ;
+        
+        // current date
+	   	long currentTime = (new Date()).getTime(); // current time in milliseconds
+        
         try {
-			mappings = extDSService.getEDSParamsList() ;
+			mappings = edsService.getEDSParamsList() ;
 			
 	        Iterator<String> it = mappings.keySet().iterator();
 
 	        while(it.hasNext()){
 	          String context = (String)it.next();
-	          String url = ((EDSParams) mappings.get(context)).url ; 
-	          checkEDSDate(url) ;
+	          EDSParams params = (EDSParams) mappings.get(context) ; 
+
+	          long localTimeStamp = Long.valueOf(params.timeStamp) ;
+	          
+	          if (localTimeStamp <= currentTime) // if the timestamp of the EDS is a future date, it is considered an "expire" date which is thus not reached yet
+	          {
+	        	  System.out.println("test last-modified") ;
+		          long timeStamp = 0 ;
+		          
+		          try
+		          {
+		          timeStamp = testURLAccess(params.url) ;
+		          }
+		          catch(ExtDataSourcesException e){
+		          	// return Response.status(502).entity(e.getMessage()).build();
+		        	log.debug("Can't access EDS URL '" + params.url + "', exception: " + e.getMessage());
+		          }
+		          
+		          if (timeStamp > localTimeStamp)
+		          {
+		        	  log.debug("Update needed for '" + params.context + "'") ;
+		              // update the data in the store
+		              try
+		              {
+		              	updateEDSinStore(headerAuth, params) ;
+		              	
+		                // udpate time stamp, if it fails, the call still succeeds but an error message
+		                // is appended to the success message
+		               	String updateTimeStampErrorMsg = updateTimeStamp(params, timeStamp) ;
+	
+		               	if (updateTimeStampErrorMsg != "")
+		               		updateTimeStampErrorMsg = " (" + updateTimeStampErrorMsg + ")" ;
+	
+		               	updatedEDSList.stringList.add(params.context + updateTimeStampErrorMsg) ;
+		              }
+		              catch (ExtDataSourcesException e) {
+		      			return Response.status(Status.INTERNAL_SERVER_ERROR).entity(e.getMessage()).build();
+		      		}
+		        	  
+		          }
+		          else
+		          {
+		        	  log.debug("Data up-to-date for '" + params.url + "' (timestamp considered as 'last-modified')") ;
+		          }
+	          }
+	          else
+	          {
+	        	  log.debug("Data up-to-date for '" + params.url + "' (timestamp considered as 'expires', and not reached yet)") ;
+	          }
 	        }
 		} catch (ExtDataSourcesException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		}
         
-        //String res = "yes!" ;
-        // return Response.ok(res, MediaType.TEXT_PLAIN).build();
-        return Response.ok("yes-done!", MediaType.TEXT_PLAIN).build();
+        return Response.ok().entity(updatedEDSList).build(); // "yes-done!", MediaType.TEXT_PLAIN)
     }
-    
-    private void checkEDSDate(String url)
-    {
-        // String url = "http://www.websemantique.ch/people/rdf/blabla.rdf" ;
-        
-    	System.out.println("checkEDS-1:" + url) ;
-	    
-	    URL finalUrl = null;
-	    HttpURLConnection conn = null ;
-	    try {
-			finalUrl = new URL(url);
-	        conn = (HttpURLConnection) finalUrl.openConnection();
-	        conn.setRequestMethod("HEAD");
-	        long lastModified = conn.getLastModified() ; // milliseconds since 01.01.1970
-	        System.out.println("Last-Modified: " + new Date(lastModified) + " (" + lastModified + ")");
-	        /*
-	        int responseCode = conn.getResponseCode() ;
-	        if (responseCode != 200) {
-	            log.debug("status different than 200: "+responseCode) ;
-	            return Response.status(502).entity("the URL passed as argument cannot be retrieved: " + responseCode).build();
-	        } 
-	        */
-		} catch (MalformedURLException e) {
-	        log.debug("malformed URL: "+ e.getMessage()) ;
-	        //return Response.status(502).entity("the URL passed as argument cannot be retrieved - malformed URL").build();
-	    } catch(IOException e) {
-	        log.debug("IOException: "+ e.getMessage()) ;
-	        //return Response.status(502).entity("the URL passed as argument cannot be retrieved:"+ e.getMessage()).build();
-	    } finally {
-	    	if (conn != null)
-	    		conn.disconnect();
-	    }
-	    
-    	// System.out.println("test successful") ;
-	    log.debug("test successful") ;
-	    
-        // return Response.ok().entity("blabla").build();
-    }    
 }

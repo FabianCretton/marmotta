@@ -1,6 +1,13 @@
  /**
  * Javascript to manage the edition of an External Data Source: saving parameters and upload
+ * Currently two EDS types are handled:
+ *	- RDFFile: a RDF file from its URL
+ *	- LinkedData: a linked data resource from its URL
  *
+ * The context for a new EDS must be a new context specific for that EDS, 
+ * 	as an EDS update will clear the context and reload the EDS content 
+ * 	a check will be done on the server side to ensure that the context don't exist yet
+ * 
  * Author: Fabian Cretton - HES-SO Valais
  * @id the div id where the UI's HTML is built
  * @listEditor the EDSList instance for the html page, needed to refresh the EDS list when adding a new one 
@@ -11,9 +18,8 @@ function EDSEditor(id,listEditor,host) {
 		
     var LMF = new MarmottaClient(host);
 		
-    var extDataSources = new ExtDataSources(host);
+    var extDataSourcesClient = new ExtDataSources(host);
 		
-    //TODO
     var loader =$("<img style='position: relative;top: 4px;margin-left: 10px;' src='../public/img/loader/ajax-loader_small.gif'>");
 
     var container = $("#"+id);
@@ -23,11 +29,9 @@ function EDSEditor(id,listEditor,host) {
     var stepChooseEDSType = $("<div></div>");
     var stepInputEDSSource = $("<div></div>");
     var stepInputEDSCommons = $("<div></div>");
-    var stepInputContext = $("<div></div>");
     var button = $("<div style='margin-top:20px'></div>");
 
     var metadata_types;
-    var contexts;
     var example_context;
 
     function init() {
@@ -36,11 +40,6 @@ function EDSEditor(id,listEditor,host) {
             metadata_types = data;
         });
 
-        $.getJSON("../../context/list",function(data) {
-            loader.hide();
-            contexts = data;
-        });
-        
         $.getJSON("../../config/data/kiwi.host",function(data) {
 						// FC: used for the default context when choosing 'new context' -> use my example one
             example_context = data["kiwi.host"] + "context/" ; // name";
@@ -49,71 +48,51 @@ function EDSEditor(id,listEditor,host) {
         
         container.empty();
         container.append(style);
-        container.append(stepChooseEDSType); // stepChooseEDSType
+        container.append(stepChooseEDSType);
         container.append(stepInputEDSSource);
         container.append(stepInputEDSCommons);
-        container.append(stepInputContext);
         container.append(button);
 
-        stepChooseEDSType.append($("<h2></h2>").append("Edit external data source").append(loader));
+        stepChooseEDSType.append($("<h2></h2>").append("Add an external data source").append(loader));
 				// import_type defined in referencer.html
-				
+				 
 			// Web RDF File interface 
        stepChooseEDSType.append($("<a class='import_type' ></a>").text("RDF file (URL)").click(function(){
-          button.empty();
-          stepInputContext.empty()
-          stepInputEDSCommons.empty();
-          stepInputEDSSource.empty();
-					// FC adding default value for tests
-          //var input = $("<input type='text' style='width: 300px' >");
-					var input = $("<input type='text' style='width: 500px' value='http://www.websemantique.ch/people/rdf/fabiancretton.rdf'>");
-					
-          var stepInputEDSSourceTable = $("<table></table>") ; //.addClass("importer_table"); // importer_table defined in referencer.html
-          stepInputEDSSourceTable.append($("<tr></tr>").append("<td class='td_title'>Data source type</td>").append("<td>WebRDFFile</td>"));
-					stepInputEDSSourceTable.append($("<tr></tr>").append("<td class='td_title'>URL</td>").append($("<td></td>").append(input)));
-          stepInputEDSSource.append(stepInputEDSSourceTable);
-
-					// clicking the button will allow to update some fields, as the mimeType
-          stepInputEDSSource.append($("<button></button>").text("ok").click(function(){
-              stepInputEDSCommons.empty();
-              if(input.val()==undefined || input.val()=="") alert("Define an URL first!");
-              else if(!isUrl(input.val())) alert("URL is not valid!")
-              else buildCommonUI(input,"RDFFile", input.val()); // pass the URL value as context default value
-          }));
+					buildEDSSource("RDFFile", "http://www.websemantique.ch/people/rdf/fabiancretton.rdf") ;
        }));
 
 				stepChooseEDSType.append("<span>|</span>");
 			 
-				// Local RDF File interface 
-        stepChooseEDSType.append($("<a class='import_type'></a>").text("Another EDS type").click(function(){
-          button.empty();
-          stepInputContext.empty();
-          stepInputEDSCommons.empty();
-          stepInputEDSSource.empty();
-					
-          var stepInputEDSSourceTable = $("<table></table>") ;
-          stepInputEDSSourceTable.append($("<tr></tr>").append("<td class='td_title'>Data source type</td>").append("<td>To be implemented</td>"));
-					
-          stepInputEDSSource.append(stepInputEDSSourceTable);
-					
-					/*
-          var input = $("<input type='file'>");
-					stepInputEDSSourceTable.append($("<tr></tr>").append("<td class='td_title'>File</td>").append($("<td></td>").append(input)));
-					
-          input.change(function(){
-							console.log(input.get(0).files[0]) ;
-							//alert(input.get(0).files[0]) ;
-              stepInputEDSCommons.empty();
-              if(input.val()==undefined || input.val()=="") 
-								alert("Select a file first!");
-              else 
-								buildCommonUI(input,"LocalRDFFile", example_context+input.val()); // build a default context name, adding the name of the selected file
-          });
-					*/
-       }));
-			 
+			// Linked Data Resource
+       stepChooseEDSType.append($("<a class='import_type' ></a>").text("Linked Data Resource").click(function(){
+					buildEDSSource("LinkedData", "http://dbpedia.org/resource/Martigny") ;
+       }));			 
     }
 
+		// UI to enter the URL, then 'OK' button to display the next steps
+		function buildEDSSource(EDS_Type, defaultURL)
+		{
+          button.empty();
+          stepInputEDSCommons.empty();
+          stepInputEDSSource.empty();
+					// FC adding default value for tests
+          //var input = $("<input type='text' style='width: 300px' >");
+					var input = $("<input type='text' style='width: 500px' value='"+ defaultURL + "'>");
+					
+          var stepInputEDSSourceTable = $("<table></table>") ; //.addClass("importer_table"); // importer_table defined in referencer.html
+          stepInputEDSSourceTable.append($("<tr></tr>").append("<td class='td_title'>Data source type</td>").append("<td>" + EDS_Type + "</td>"));
+					stepInputEDSSourceTable.append($("<tr></tr>").append("<td class='td_title'>URL</td>").append($("<td></td>").append(input)));
+          stepInputEDSSource.append(stepInputEDSSourceTable);
+
+					// clicking the button will allow to update some fields, as the mimeType and context
+          stepInputEDSSource.append($("<button></button>").text("ok").click(function(){
+              stepInputEDSCommons.empty();
+              if(input.val()==undefined || input.val()=="") alert("Define an URL first!");
+              else if(!isUrl(input.val())) alert("URL is not valid!")
+              else buildContextMimeTypeSaveButton(input, EDS_Type, input.val()); // pass the URL value as context default value
+          }));
+}
+					
 	function success(result)
 	{
 	alert('success:' + result) ;
@@ -127,84 +106,76 @@ function EDSEditor(id,listEditor,host) {
     loader.hide();
 	}
 	
-	function importFail_old(serverError)
-	{
-		alert('The external data source could not be imported (' + serverError.name + '): ' + serverError.message) ;
-    loader.hide();
-	}
-	
-	function uploadFile(EDSType, url, mimeType, context, onsuccess, onfailure)
-	{
-				$.ajax({
-					url: '/EDS/EDSParams?EDSType=' + EDSType + '&url='+ encodeURIComponent(url) + '&context='+ encodeURIComponent(context),
-					type: 'POST',
-					contentType: mimeType,
-					//data: params,
-					//dataType:'text',
-					success: function(result) {
-							if(onsuccess)
-								onsuccess();
-								
-							console.debug("saveEDSParams4FileURLAndImport successful");
-					},
-				 error: function (jqXhr, textStatus, error) {
-							if(onfailure)
-								onfailure(jqXhr) ;
-				}
-			});
-	}
-	
 	// The EDS parameters have been saved and the import is a running task
 	// update the list of EDS, eventhough the import is running
 	// WARNING: not handled so far to remove the EDS from the list if the import fails, as it is an asynchronous operation
-	function importStarted()
+	function importRDFFileStarted(result)
 	{
     alert("upload is running; you can control the running import tasks on $LMF/core/admin/tasks.html");
     loader.hide();
 		pageListEditor.buildList() ;
 	}
 	
-	// input_field: the file input selection for local file, the text field for URL
-	// EDSType: so far "WebRDFFile" or "LocalRDFFile"
-    function buildCommonUI(input_field,EDS_Type, defaultContextValue) {
-        var source_filetype; // type of source: so far it is the serialization of an RDFFile
+	function importLDResource(result)
+	{
+    alert("Linked Data resource successfully imported: "+ result);
+    loader.hide();
+		pageListEditor.buildList() ;
+	}
+	
+	/*
+	*	Common interface for EDS: 
+	*	- MimeType if the type of EDS is RDFFile
+	*	- Context 
+	* - Save/import button
+	*
+	* input_field: the text field for URL or Linked Data Resource
+	* EDSType: "RDFFile" or "LinkedData"
+	*/
+    function buildContextMimeTypeSaveButton(input_field,EDS_Type, defaultContextValue) {
+        var source_filetype; // type of source: so far it is the mimetype of the RDFFile
         var source_filetype_input;
         var context;
         var context_input;
-        var context_type="default";
 
         function waitForMetadataTypes() {
 						stepInputEDSCommons.append("(loading MetadataTypes...)");
             if(metadata_types==undefined) setTimeout(waitForMetadataTypes,1000);
             else writeTable()
         }
-        waitForMetadataTypes();
-
+				
+				if (EDS_Type == "RDFFile")
+					waitForMetadataTypes();
+				else 
+					writeTable() ;
+					
         function writeTable() {
-            stepInputContext.empty();
             button.empty();
+						
 						stepInputEDSCommons.empty() ;
-            checkFileType();
-            var table = $("<table></table>"); // .addClass("importer_table"); // importer_table defined in referencer.html
+						
+						if (EDS_Type == "RDFFile") // automatically detect the file's mimetype from file's extension
+							{
+							var table = $("<table></table>"); // .addClass("importer_table"); // importer_table defined in referencer.html
+							
+							checkFileType();
+							
+							var td_mime = $("<td></td>");
 
-            var td_mime = $("<td></td>");
+							createMimeTD(td_mime);
+							table.append($("<tr></tr>").append("<td class='td_title'>Mime</td>").append(td_mime));
+							
+							stepInputEDSCommons.append(table);
+							}
 
-            createMimeTD(td_mime);
-            table.append($("<tr></tr>").append("<td class='td_title'>Mime</td>").append(td_mime));
-
-            stepInputEDSCommons.append(table);
-
-						// FC
-						context_type = "define new" ;
-						stepInputContext.empty() ;
+						// Context
 						context_input = $("<input style='width: 500px' value='" + defaultContextValue + "' />");
             var contextTable = $("<table></table>") ; //.addClass("importer_table");
             contextTable.append($("<tr></tr>").append("<td class='td_title'>Context</td>").append($("<td></td>").append(context_input)));
-            stepInputContext.append(contextTable);
+            stepInputEDSCommons.append(contextTable);
             
 						var bSaveParams= $("<button  style='font-weight:bold'></button>").text("Save params & import!").click(function(){
-                context = context_type=="default"?undefined:context_input.val();
-                context = context==null?context=null:context;
+                context = context_input.val();
  							
                 if(context==null) {
                     alert("context must be defined!"); return;
@@ -214,12 +185,6 @@ function EDSEditor(id,listEditor,host) {
                     alert("context must be an url!"); return;
                 }
 								
-								// Warning: if the goal here is to avoid saving in a context that already exists
-								// then it would be necessary to 'refresh' the list of context, as it might have changed
-								// 	i.e. another user could have deleted/added contexts in the meanwhile
-								// this should be performed on the server 
-								//alert('context already exists:' + checkExistingContext(context)) ;
-
 								var urlValue = input_field.val() ;
                if(urlValue==null) {
                     alert("URL must be defined!"); return;
@@ -228,15 +193,19 @@ function EDSEditor(id,listEditor,host) {
                 if(!isUrl(urlValue)) {
                     alert("URL must be an url!"); return;
                 }
-								
-								var mimeTypeValue= source_filetype_input.val()
-								
+
 								// Save the parameters and upload the file
 								loader.show() ;
 								
-								//uploadFile(EDS_Type, urlValue, mimeTypeValue, context, importStarted, importFail) ;
-								extDataSources.addRDFFileURLandImport(EDS_Type, urlValue, mimeTypeValue, context, importStarted, importFail) ;
-								
+								if (EDS_Type == "RDFFile")
+									{
+									var mimeTypeValue = source_filetype_input.val() ;
+									extDataSourcesClient.addRDFFileURLandImport(EDS_Type, urlValue, mimeTypeValue, context, importRDFFileStarted,  importFail) ;
+									}
+								else // LinkedData
+									{
+									extDataSourcesClient.addRDFFileURLandImport(EDS_Type, urlValue, "application/rdf+xml", context, importLDResource,  importFail) ;
+									}
             });
             button.append(bSaveParams);
 
@@ -249,36 +218,6 @@ function EDSEditor(id,listEditor,host) {
                 }
             td.empty().append(source_filetype_input);
             if(source_filetype)source_filetype_input.val(source_filetype);
-        }
-
-				// Check if the context passed as parameter already exists or not
-				function checkExistingContext(aContext)
-				{
-            for(var i in contexts) {
-							if (aContext == contexts[i])
-								return true ;
-            }
-						
-						return false ;
-				}
-				
-        function createContexts() {
-            stepInputContext.empty();
-            context=undefined;
-            if(context_type=="use existing") {
-                context_input = $("<select></select>");
-                if(contexts.length==0) {
-										stepInputContext.append("no existing context, default is used.");
-                }  else {
-                    for(var i in contexts) {
-                        context_input.append("<option>"+contexts[i]+"</option>")
-                    }
-                    stepInputContext.append("Context: ").append(context_input);
-                }
-            } else if(context_type=="define new"){
-                context_input = $("<input style='width: 500px' value='" + example_context + "' />");
-                stepInputContext.append("Context: ").append(context_input);
-            }
         }
 
         function checkFileType() {
@@ -309,4 +248,5 @@ function EDSEditor(id,listEditor,host) {
     }
 
     init();
+		loader.hide() ;
 }

@@ -33,6 +33,7 @@
                 showFlags : false
             }
         };
+				
     </script>
     <script data-main="../../webjars/squebi/0.0.5/main" src="../../webjars/squebi/0.0.5/requirejs/require.js"></script>
     <!--###END_HEAD###-->
@@ -68,6 +69,7 @@
     <div style="margin-top:50px;position: relative;" ng-controller="QueryCtrl" class="jumbotron">
         <div id="query-container">
             <textarea id="input" ng-model="query" ui-codemirror="editorOptions"></textarea>
+            <textarea id="input2" ng-model="query" ui-codemirror="editorOptions"></textarea>
         </div>
         <a class="btn btn-lg btn-success btn-query" ng-click="triggerQuery()">
             <i class="fa fa-play-circle"></i> Run

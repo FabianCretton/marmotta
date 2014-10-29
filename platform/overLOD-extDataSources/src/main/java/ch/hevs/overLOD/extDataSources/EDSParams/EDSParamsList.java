@@ -68,4 +68,21 @@ public class EDSParamsList {
 	else
 		return false ;
 	}
+	
+	/**
+    * Set a new value for the timeStamp of an EDS
+    * @param context  the context (Named Graph) where this EDS is saved locally, which is its identifier
+    * @param timeStamp a string representing the timeStamp
+    * @return true/false whether the value has been saved or not
+	 */
+	public boolean setEDSParamsTimeStamp(String context, String timeStamp)
+	{
+		if (EDSParamsSortedMap.containsKey(context))
+		{
+			((EDSParams)EDSParamsSortedMap.get(context)).timeStamp = timeStamp ;
+			return true;
+		}
+	else
+		return false ;
+	}
 }
