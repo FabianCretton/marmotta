@@ -80,6 +80,7 @@ public class LoggingServiceImpl implements LoggingService {
     @Inject
     private Instance<LoggingModule> loggingModules;
 
+
     private LoadingCache<String,LogFileOutput> logfileCache;
     private LoadingCache<String,SyslogOutput>  syslogCache;
 
@@ -92,37 +93,23 @@ public class LoggingServiceImpl implements LoggingService {
     @PostConstruct
     public void initialize() {
         log.info("Apache Marmotta Logging Service starting up ...");
-        //System.out.println("fab here") ;
-        
+
         appenders = new HashMap<>();
 
         logfileCache = CacheBuilder.newBuilder().maximumSize(10).expireAfterAccess(10, TimeUnit.MINUTES).build(
                 new CacheLoader<String, LogFileOutput>() {
                     @Override
                     public LogFileOutput load(String key) throws Exception {
-                        System.out.println("cache loader - load: " + key) ;
 
                         if(configurationService.isConfigurationSet("logging.file."+key+".name")) {
-                            System.out.println("return new LogFileOutput for that cache load") ;
                             return new LogFileOutput(key, configurationService);
                         } else {
-                            System.out.println("logfile configuration "+key+" not found") ;
                             throw new MarmottaConfigurationException("logfile configuration "+key+" not found");
                         }
                     }
                 }
         );
 
-        try {
-			LogFileOutput mainTst = logfileCache.get("main") ;
-			System.out.println("main tst fileName: " + mainTst.getFileName()) ;
-			
-		} catch (ExecutionException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-        
-        
         syslogCache = CacheBuilder.newBuilder().maximumSize(5).expireAfterAccess(10, TimeUnit.MINUTES).build(
                 new CacheLoader<String, SyslogOutput>() {
                     @Override
@@ -138,9 +125,6 @@ public class LoggingServiceImpl implements LoggingService {
 
         consoleOutput = new ConsoleOutput(configurationService);
 
-        System.out.println("*************") ;
-        System.out.println("consoleOutput, max level: "+ consoleOutput.getMaxLevel()) ;
-        
         loggerContext = (LoggerContext) LoggerFactory.getILoggerFactory();
 
         log.info("- configured logging modules: {}", StringUtils.join(Iterables.transform(listModules(), new Function<LoggingModule, Object>() {
@@ -156,9 +140,6 @@ public class LoggingServiceImpl implements LoggingService {
                 return input.getName();
             }
         }),", "));
-        
-        log.info("log.info test");
-        log.debug("log.debug test");
 
     }
 
@@ -192,14 +173,9 @@ public class LoggingServiceImpl implements LoggingService {
         // remove all existing appenders
         loggerContext.reset();
 
-
-        System.out.println("*****  configureOutput  ******") ;
         for(LoggingOutput output : listOutputConfigurations()) {
             configureOutput(output);
         }
-        System.out.println("*****  configureModule  ******") ;
-        List lst = listModules() ;
-        System.out.println("List size: " + lst.size()) ;
         for(LoggingModule module : listModules()) {
             configureModule(module);
         }
@@ -210,11 +186,7 @@ public class LoggingServiceImpl implements LoggingService {
         rootLogger.detachAndStopAllAppenders();
         rootLogger.addAppender(appenders.get(getOutputConfiguration("console")));
         rootLogger.addAppender(appenders.get(getOutputConfiguration("main")));
-        System.out.println("*****  configure ROOT logger  ******") ;
-        Appender<ILoggingEvent> tstMain = appenders.get(getOutputConfiguration("main")) ;
-        System.out.println("appender for main: " + tstMain.getName()) ;
-        rootLogger.info("test root logger info") ;
-        
+
     }
 
     /**
@@ -225,17 +197,13 @@ public class LoggingServiceImpl implements LoggingService {
     private void configureOutput(LoggingOutput output) {
         Appender<ILoggingEvent> appender = appenders.get(output);
 
-		System.out.println("**************************") ;
-		System.out.println("configuring LoggingOutput: " + output.getName()) ;
-		System.out.println("maxLevel: " + output.getMaxLevel()) ;
-        
         // stop old existing appender
-        if(appender != null)
+        if(appender != null) {
             appender.stop();
+        }
 
         // create new appender based on configuration
         if(output instanceof ConsoleOutput) {
-        	System.out.println("instance of ConsoleOutput") ;
             appender = new ConsoleAppender<>();
 
             PatternLayoutEncoder pl = new PatternLayoutEncoder();
@@ -247,40 +215,22 @@ public class LoggingServiceImpl implements LoggingService {
 
         } else if(output instanceof LogFileOutput) {
             String basePath = configurationService.getHome() + File.separator + "log" + File.separator;
-        	System.out.println("basePath: " + basePath) ;
 
             appender = new RollingFileAppender<>();
+            ((RollingFileAppender)appender).setFile(basePath + ((LogFileOutput) output).getFileName());
 
-            /*
-            if (output.getName().equals("Marmotta Main Log"))
-            {
-                System.out.println("appender setFile: C:\\Users\\fabian.cretton\\AppData\\Local\\Temp\\marmotta\\log\\marmotta-main-fab.log") ;
-            	((RollingFileAppender)appender).setFile("C:\\Users\\fabian.cretton\\AppData\\Local\\Temp\\marmotta\\log\\marmotta-main-fab.log");
-            }
-            else
-            {
-            */
-                System.out.println("appender setFile: " + basePath + ((LogFileOutput) output).getFileName()) ;
-            	((RollingFileAppender)appender).setFile(basePath + ((LogFileOutput) output).getFileName());
-            //}
-            
-            // System.out.println("appender getFile: " + ((RollingFileAppender)appender).getFile()) ;
-            
             TimeBasedRollingPolicy policy = new TimeBasedRollingPolicy();
-            System.out.println("policy - setContext: " + loggerContext) ;
             policy.setContext(loggerContext);
             policy.setMaxHistory(((LogFileOutput) output).getKeepDays());
             policy.setFileNamePattern(basePath + ((LogFileOutput) output).getFileName() + ".%d{yyyy-MM-dd}.gz");
             policy.setParent((FileAppender) appender);
             policy.start();
-            System.out.println("policy.getActiveFileName(): " + policy.getActiveFileName()) ;
-            
+
             ((RollingFileAppender) appender).setRollingPolicy(policy);
 
             PatternLayoutEncoder pl = new PatternLayoutEncoder();
             pl.setContext(loggerContext);
             pl.setPattern(output.getPattern());
-            System.out.println("PatternLayoutEncoder.setPattern: " + output.getPattern()) ;
             pl.start();
 
             ((RollingFileAppender) appender).setEncoder(pl);
@@ -300,17 +250,11 @@ public class LoggingServiceImpl implements LoggingService {
 
         ThresholdFilter filter = new ThresholdFilter();
         filter.setLevel(output.getMaxLevel().toString());
-        System.out.println("ThresholdFilter.level: " + output.getMaxLevel().toString()) ;
-        
         filter.setContext(loggerContext);
         filter.start();
-        
         appender.addFilter(filter);
+
         appender.start();
-        
-        System.out.println("appender.isStarted: "+ appender.isStarted()) ;
-        System.out.println("appender.addInfo") ;
-        appender.addInfo("add info test");
 
         appenders.put(output,appender);
 
@@ -324,23 +268,14 @@ public class LoggingServiceImpl implements LoggingService {
      */
     private void configureModule(LoggingModule module) {
         for(String pkg : module.getPackages()) {
-        	System.out.println("************************") ;
-        	System.out.println("configureModule: " + pkg) ;
-        	//if (!pkg.equals("ch.hevs.overLOD"))
-        	//{
             ch.qos.logback.classic.Logger logger = loggerContext.getLogger(pkg);
             logger.detachAndStopAllAppenders();
             logger.setAdditive(false);
             logger.setLevel(module.getCurrentLevel());
-        	System.out.println("setLevel: " + module.getCurrentLevel()) ;
-// Fab: to test "run as server", I did comment out those lines which throw an exception as "appender" seems null
+
             for(LoggingOutput appender : module.getLoggingOutputs()) {
-            	System.out.println("add appender: " + appender.getName()) ;
                 logger.addAppender(appenders.get(appender));
             }
-        	//}
-        	//else
-        	//	System.out.println("overLOD discarded for tests") ;
         }
     }
 
@@ -368,8 +303,6 @@ public class LoggingServiceImpl implements LoggingService {
     @Override
     public LogFileOutput createLogFileOutput(String id, String name, String file) {
         try {
-            System.out.println("createLogFileOutput: " + file) ;
-        	
             return logfileCache.get(id);
         } catch (ExecutionException e) {
             LogFileOutput r = new LogFileOutput(id, configurationService);
