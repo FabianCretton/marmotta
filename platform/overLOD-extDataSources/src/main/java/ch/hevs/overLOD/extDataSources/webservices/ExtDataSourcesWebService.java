@@ -103,7 +103,6 @@ public class ExtDataSourcesWebService {
     @Produces("application/json")
     public Response getEDSParamsList() {
         log.debug("GET getEDSParamsList");
-        // System.out.println("GET getEDSParamsList");
 
         TreeMap<String, EDSParams> mappings;
 		try {
@@ -212,8 +211,9 @@ public class ExtDataSourcesWebService {
     @Path("/EDSParams")
     public Response addEDS(@HeaderParam("Authorization") String headerAuth, @HeaderParam("Content-Type") String contentType, @QueryParam("EDSType") String EDSType, @QueryParam("url") String url, @QueryParam("context") String context) {
         log.debug("POST addEDS Content-type:{}, EDSType:{}, url:{} context:{}", contentType, EDSType, url, context);
-        System.out.println("POST addEDS Content-type: "+contentType+", EDSType: "+EDSType+", url: "+ url + ", context: "+ context);
        
+        String importWithLDClientResultString = "" ;
+        
         if (StringUtils.isBlank(context))
             return Response.status(Status.NOT_ACCEPTABLE).entity("Web Service call error: missing 'context' parameter").build();
         if (StringUtils.isBlank(url))
@@ -239,26 +239,32 @@ public class ExtDataSourcesWebService {
         }
 
 
-        // Start the import
+        // Start the import using  LDClient
         try {
+        	importWithLDClientResultString = edsService.importWithLDClient(uri.getBaseUri().toString(), headerAuth, EDSType, url, context) ;
+
+    		/*
+    		 * Former code which was using the "import" service for RDF files
+    		 * and LDClient for linked data
         	switch(EDSType)
         	{
         	case "RDFFile":
-        		// test LDClient on RDF file
-        		edsService.importWithLDClient(uri.getBaseUri().toString(), headerAuth, "LinkedData", url, context) ;
-    			//// callImportWS4RDFFile(headerAuth, contentType, url, context) ;
+    			callImportWS4RDFFile(headerAuth, contentType, url, context) ;
     			break ;
         	case "LinkedData":
         		edsService.importWithLDClient(uri.getBaseUri().toString(), headerAuth, "LinkedData", url, context) ;
         		break ;
         	}
+        	*/
 		} catch (ExtDataSourcesException e) {
 			return Response.status(Status.INTERNAL_SERVER_ERROR).entity(e.getMessage()).build();
 		}
         	
         // If import done or started, save the EDS parameters
         try {
-			return Response.ok(edsService.addEDSParams(EDSType, contentType, url, context, String.valueOf(timeStamp))).build();
+        	// then return the confirmation string returned by importWithLD
+        	edsService.addEDSParams(EDSType, contentType, url, context, String.valueOf(timeStamp)) ;        	
+			return Response.ok(importWithLDClientResultString).build();
 		} catch (ExtDataSourcesException e) {
 			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error - The import is running, but an error occured while saving External Data Source parameters: "+ e.getMessage()).build();
 		}
@@ -287,12 +293,10 @@ public class ExtDataSourcesWebService {
 	    HttpURLConnection conn = null ;
 	    try {
 			finalUrl = new URL(url);
-			// System.out.println("try open url: "+ url) ;
 	        conn = (HttpURLConnection) finalUrl.openConnection();
 	        //conn.connect();
 	        conn.setRequestMethod("HEAD");
 	        int responseCode = conn.getResponseCode() ;
-	        //System.out.println("responseCode: "+ responseCode) ;
 	        
 	        if (responseCode != 200) {
 	            log.debug("status different than 200: "+responseCode) ;
@@ -303,13 +307,11 @@ public class ExtDataSourcesWebService {
 	        // -> if the URL don't exist, getLastModified just returns 0, with no error
 	        timestamp = conn.getLastModified() ; // milliseconds since 01.01.1970
 	        log.debug("Last modified: " + timestamp) ;
-	        System.out.println("Last Modified (" + url + "): " + timestamp) ;
 	        
 	        if (timestamp == 0) // no "last-modified", take "expires" instead
 	        {
 	        	timestamp = conn.getExpiration() ;
 	        	log.debug("Last modified not set, use 'expires' instead: " + timestamp) ;
-		        System.out.println("Last modified not set, use 'expires' instead: " + new Date(timestamp));
 	        }
 		} catch (MalformedURLException e) {
 	        log.debug("malformed URL: "+ e.getMessage()) ;
@@ -512,7 +514,6 @@ public class ExtDataSourcesWebService {
 	          
 	          if (localTimeStamp <= currentTime) // if the timestamp of the EDS is a future date, it is considered an "expire" date which is thus not reached yet
 	          {
-	        	  System.out.println("test last-modified") ;
 		          long timeStamp = 0 ;
 		          
 		          try

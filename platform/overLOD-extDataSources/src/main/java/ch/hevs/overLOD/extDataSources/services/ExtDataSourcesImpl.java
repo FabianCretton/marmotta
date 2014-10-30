@@ -209,7 +209,6 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 	        object = mapper.readValue(new File(filePath), objectClass);
 			 
 	        log.debug("JSONSerialization2Object - done!");
-			//System.out.println(mapper.writeValueAsString(object));
 		} catch (Exception e1) {
 	        log.error("JSONSerialization2Object :" +e1.getMessage());
 	        object = null ;
@@ -248,18 +247,20 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 	 * and imported in Marmotta using the ImportClient
 	 * 
      * @param marmottaURL ther marmottaServer URL, needed to call ImportClient
-     * @param LDClientType so far only "LinkedData" is handled, but any other provider could be tested in the futur
-     * This parameter is not really used as the LDClient.retrieveResource() seems to handle that automatically with "Linked Data"
+     * @param EDSType the type of EDS, as "RDFFile" or "LinkedData"
+     * This parameter is not really used as the LDClient.retrieveResource() handles automatically which provider/endpoint to call
+     * depending on the URL
      * @param url the url of the Linked Data resource to upload, for instance "http://dbpedia.org/resource/Martigny"
      * @param context the context (named graph) in which the data will be saved
      * @throws ExtDataSourcesException with an error message
      * @return a string with a validation message
      */
 	@Override
-	public String importWithLDClient(String marmottaURL, String headerAuth, String LDClientType, String url, String context)  throws ExtDataSourcesException
+	public String importWithLDClient(String marmottaURL, String headerAuth, String EDSType, String url, String context)  throws ExtDataSourcesException
 	{
         log.debug("importLDResource:{} -> {}", url, context);
-        System.out.println("importLDResource:"+ url) ;
+        
+        long importedTriplesCount = 0 ;
         
         // create a LDClient with default configuration
         // this will include default providers, as "Linked Data" which is the one we need so far
@@ -268,9 +269,10 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 		Set<DataProvider> providers = ldclient.getDataProviders() ;
 		// pour linked data: "Linked Data"
 		
+		/*
         for(DataProvider provider : providers) {
             System.out.println("- LDClient Provider a: " + provider.getName());
-        }
+        }*/
 			
         /*
          * A ping on a linked data resource will fail, don't do it
@@ -282,15 +284,12 @@ public class ExtDataSourcesImpl implements ExtDataSources {
         
 		try {
 			// retrieveResource will look for a provider for that resource
-			// in the test I  have made, a "Linked Data" provider is correctly used
-			System.out.println("before retrieve");
 			ClientResponse result = ldclient.retrieveResource(url);
-			System.out.println("after retrieve");
 			
 	        connection = ModelCommons.asRepository(result.getData()).getConnection();
 	        connection.begin();
 	        
-	        System.out.println("result size: " + connection.size());
+	        importedTriplesCount = connection.size();
 
 	        // example to show how a SPARQL could be run on the data
 	        // this would be useful for overLOD futur options as
@@ -307,9 +306,6 @@ public class ExtDataSourcesImpl implements ExtDataSources {
             StringWriter out = new StringWriter();
             connection.export(Rio.createWriter(format, out));
             
-            // System.out.println("LDClient retrieved data:");
-            // System.out.println(out.toString());
-
             // I intended to use Marmotta ImportClient to upload the data
             // but that was not working with a secured Marmotta: 401 from the ImportClient
             // I tried specifying user/pwd in the configuration: new ClientConfiguration(marmottaURL, "fab", "Fab");
@@ -344,7 +340,7 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 			ldclient.shutdown();
         }
 		
-		return "Data successfully imported using the LDClient" ;
+		return "Data successfully imported using the LDClient (" + importedTriplesCount + " triples)" ;
 	}
 	
 	/*
@@ -358,7 +354,6 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 	 */
     public void uploadDataset(String headerAuth, ClientConfiguration config, final InputStream in, final String mimeType) throws IOException, ExtDataSourcesException {
         //Preconditions.checkArgument(acceptableTypes.contains(mimeType));
-    	//System.out.println("uploadDataset from ExtDataSourcesImp") ;
     	
         HttpClient httpClient = HTTPUtil.createClient(config);
 
@@ -390,7 +385,6 @@ public class ExtDataSourcesImpl implements ExtDataSources {
                         // return false;
                     default:
                         log.error("error uploading dataset: {} {}",new Object[] {response.getStatusLine().getStatusCode(),response.getStatusLine().getReasonPhrase()});
-                        System.out.println("error uploading: "+ response.getStatusLine().getStatusCode()) ;
                         throw new IOException("error uploading: "+ response.getStatusLine().getStatusCode());
                         // return false;
                 }

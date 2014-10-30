@@ -22,6 +22,7 @@ import com.google.common.base.Preconditions;
 import javolution.util.function.Predicate;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.logging.Log;
 import org.apache.marmotta.commons.sesame.model.ModelCommons;
 import org.apache.marmotta.ldclient.api.endpoint.Endpoint;
 import org.apache.marmotta.ldclient.exception.DataRetrievalException;
@@ -37,12 +38,13 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * RDFFile mplementation of a data provider. Allows retrieval of an RDF file content.
- * It is a copy of LinkedDataProvider, but here no test is done to limit triples where
- * the subject is the same as the imported URL
+ * RDFFile implementation of a data provider. Allows retrieval of an RDF file content.
+ * It is a copy of LinkedDataProvider
+ * But here AbstractRDFProvider.parseResponse is overriden as we don't want to limit the valid triples to the
+ * ones where the subject is the same as the imported URL:
  * -> importing an RDF file, all triples are valids
  * 
- * @author Fabian Cretton
+ * @author Fabian Cretton, HES-SO OverLOD surfer project
  */
 public class RDFFileProvider extends AbstractRDFProvider {
 
@@ -76,14 +78,22 @@ public class RDFFileProvider extends AbstractRDFProvider {
     public List<String> parseResponse(final String resourceUri, String requestUrl, Model triples, InputStream in, String contentType) throws DataRetrievalException {
         RDFFormat format = RDFParserRegistry.getInstance().getFileFormatForMIMEType(contentType, RDFFormat.RDFXML);
 
+        /*
+         * It does happen that .ttl or .n3 file do return a "text/plain" format, which seems
+         * aceptable by W3C standards
+         * In that case, to avoid a failure of the importer, the contentType is corrected
+         * according to the file's extension
+         */
+        if (contentType.equals("text/plain"))
+        	{
+        	if (resourceUri.endsWith(".ttl"))
+        		format = RDFFormat.TURTLE ;
+        	else if(resourceUri.endsWith(".n3"))
+    		format = RDFFormat.N3 ;
+        }
+        
         try {
-            ModelCommons.add(triples, in, resourceUri, format, new Predicate<Statement>() {
-                @Override
-                public boolean test(Statement param) {
-                	return true ;
-                    // return StringUtils.equals(param.getSubject().stringValue(), resourceUri);
-                }
-            });
+        	ModelCommons.add(triples, in, resourceUri, format) ;
 
             return Collections.emptyList();
         } catch (RDFParseException e) {

@@ -268,10 +268,7 @@ public final class LDClient implements LDClientService {
     @Override
     public Endpoint getEndpoint(String resource) {
         for(Endpoint endpoint : endpoints) {
-        	{
-        		System.out.println("getEndpoint, check: "+ endpoint.getName()) ;
             if (endpoint.handles(resource)) return endpoint;
-        	}
         }
 
         return null;

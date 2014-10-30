@@ -49,7 +49,7 @@ public class DataViewLoggingModule extends BaseLoggingModule {
      */
     @Override
     public String getId() {
-        return "overLOD-dataView";
+        return "DataView";
     }
 
     /**
@@ -60,7 +60,7 @@ public class DataViewLoggingModule extends BaseLoggingModule {
      */
     @Override
     public String getName() {
-        return "Data View";
+        return "DataView";
     }
 
     /**
@@ -71,6 +71,6 @@ public class DataViewLoggingModule extends BaseLoggingModule {
      */
     @Override
     public Collection<String> getPackages() {
-        return Collections.singleton("ch.hevs.overLOD");
+        return Collections.singleton("ch.hevs.overLOD.dataView");
     }
 }

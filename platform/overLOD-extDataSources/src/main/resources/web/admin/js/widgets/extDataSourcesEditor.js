@@ -106,19 +106,9 @@ function EDSEditor(id,listEditor,host) {
     loader.hide();
 	}
 	
-	// The EDS parameters have been saved and the import is a running task
-	// update the list of EDS, eventhough the import is running
-	// WARNING: not handled so far to remove the EDS from the list if the import fails, as it is an asynchronous operation
-	function importRDFFileStarted(result)
+	function importEDSSuccess(result)
 	{
-    alert("upload is running; you can control the running import tasks on $LMF/core/admin/tasks.html");
-    loader.hide();
-		pageListEditor.buildList() ;
-	}
-	
-	function importLDResource(result)
-	{
-    alert("Linked Data resource successfully imported: "+ result);
+    alert("EDS successfully imported: "+ result);
     loader.hide();
 		pageListEditor.buildList() ;
 	}
@@ -200,11 +190,11 @@ function EDSEditor(id,listEditor,host) {
 								if (EDS_Type == "RDFFile")
 									{
 									var mimeTypeValue = source_filetype_input.val() ;
-									extDataSourcesClient.addRDFFileURLandImport(EDS_Type, urlValue, mimeTypeValue, context, importRDFFileStarted,  importFail) ;
+									extDataSourcesClient.addRDFFileURLandImport(EDS_Type, urlValue, mimeTypeValue, context, importEDSSuccess,  importFail) ;
 									}
 								else // LinkedData
 									{
-									extDataSourcesClient.addRDFFileURLandImport(EDS_Type, urlValue, "application/rdf+xml", context, importLDResource,  importFail) ;
+									extDataSourcesClient.addRDFFileURLandImport(EDS_Type, urlValue, "application/rdf+xml", context, importEDSSuccess,  importFail) ;
 									}
             });
             button.append(bSaveParams);

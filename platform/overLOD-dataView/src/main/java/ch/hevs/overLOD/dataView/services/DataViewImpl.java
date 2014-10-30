@@ -87,8 +87,6 @@ public class DataViewImpl implements DataView {
 			 }
         }
 
-        // System.out.println("service getDataViewsList(), size: "+ dataViewsList.size());
-
     	return dataViewsList ;
     }
 

@@ -51,7 +51,9 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.marmotta.client.ClientConfiguration;
 import org.apache.marmotta.client.util.HTTPUtil;
 import org.apache.marmotta.platform.core.api.config.ConfigurationService;
+import org.apache.marmotta.platform.core.api.logging.LoggingService;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.brsanthu.googleanalytics.GoogleAnalytics;
 import com.brsanthu.googleanalytics.PageViewHit;
@@ -69,7 +71,8 @@ import ch.hevs.overLOD.dataView.exceptions.DataViewException;
 public class DataViewWebService {
 
     //@Inject
-    //private Logger log;
+    // private Logger log;
+	// I don't know why, but it seems that an Inject here will not work, to be investigated
     private Logger log = org.slf4j.LoggerFactory.getLogger(this.getClass());
 
     @Inject
@@ -112,7 +115,6 @@ public class DataViewWebService {
      */
     @GET
     public Response getDataView(@HeaderParam("Authorization") String headerAuth, @HeaderParam("Accept") String acceptMimeType, @Context UriInfo uriInfo, @QueryParam("viewName") String viewName, @QueryParam("format") String mimeTypeAsParam) {
-    	// System.out.println("getDataView - authorization: "+ headerAuth) ;
         log.debug("Requesting DataView: {}", viewName);
     	
         String GoogleAnalyticsTrackingID = dataViewService.getGoogleAnalyticsTrackingID();
@@ -122,12 +124,10 @@ public class DataViewWebService {
         	GoogleAnalytics ga = new GoogleAnalytics(GoogleAnalyticsTrackingID) ;
         	//ga.post(new PageViewHit(uri.getBaseUri().toString()+"dataView?viewName=" + viewName, "test"));
         	ga.post(new PageViewHit("dataView?viewName=" + viewName, "test"));
-        	System.out.println("googleAnalytics posted with id:"+ GoogleAnalyticsTrackingID) ;
         	log.debug("new PageViewHit for GoogleAnalytics, with trackingId:"+ GoogleAnalyticsTrackingID) ;
         }
     	
     	String mimeType = acceptMimeType ;
-    	// System.out.println("mimeType: "+ mimeType) ;
     	
         if (StringUtils.isEmpty(acceptMimeType))
         	{	
@@ -175,7 +175,6 @@ public class DataViewWebService {
 			}
         }
 
-        // System.out.println("final query:" + query) ;
         log.debug("final query:" + query) ;
         
        return getDataViewImpl(headerAuth, mimeType, query) ;
@@ -193,7 +192,6 @@ public class DataViewWebService {
     @POST
     public Response addDataView(@HeaderParam("Authorization") String headerAuth, @QueryParam("viewName") String viewName, @QueryParam("query") String query) {
         log.debug("Adding DataView: {} - {}", viewName, query);
-        // System.out.println("Adding DataView:" + viewName) ;
         
         if (StringUtils.isEmpty(viewName)) {
             log.warn("No viewName specified");
@@ -232,7 +230,6 @@ public class DataViewWebService {
     @PUT
     public Response updateDataView(@HeaderParam("Authorization") String headerAuth, @QueryParam("viewName") String viewName, @QueryParam("query") String query) {
         log.debug("Updating DataView: {} - {}", viewName, query);
-        // System.out.println("Updating DataView:" + viewName) ;
     	
         if (StringUtils.isEmpty(viewName)) {
             log.warn("No view specified");
@@ -270,7 +267,6 @@ public class DataViewWebService {
     @DELETE
     public Response addDataView(@HeaderParam("Authorization") String headerAuth, @QueryParam("viewName") String viewName) {
         log.debug("Deleting DataView: {}", viewName);
-        // System.out.println("Deleting DataView:" + viewName) ;
         
         if (StringUtils.isEmpty(viewName)) {
             log.warn("No viewName specified");
@@ -357,8 +353,6 @@ public class DataViewWebService {
      * to return the result of the SPARQL query associated to the DataView
      */
     public Response getDataViewImpl(String headerAuth, String acceptMimeType, String query) {
-        // log.debug("Requesting DataView: {}", viewName);
-    	
     	// create a client configuration with the current WS uri's
     	ClientConfiguration clientConfig = new ClientConfiguration(uri.getBaseUri().toString()) ;
         
@@ -552,7 +546,7 @@ public class DataViewWebService {
     @Produces("application/json")
     public Response getDataViewsList() {
         log.debug("GET getDataViewsList");
-
+        
         ArrayList<String> dataViewsList ;
 		try {
 			dataViewsList = (dataViewService != null ? dataViewService.getDataViewsList() : new ArrayList<String>());

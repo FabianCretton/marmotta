@@ -60,7 +60,7 @@ public class ExtDataSourcesLoggingModule extends BaseLoggingModule {
      */
     @Override
     public String getName() {
-        return "External Data Sources";
+        return "EDS";
     }
 
     /**
@@ -71,6 +71,6 @@ public class ExtDataSourcesLoggingModule extends BaseLoggingModule {
      */
     @Override
     public Collection<String> getPackages() {
-        return Collections.singleton("ch.hevs.overLOD");
+        return Collections.singleton("ch.hevs.overLOD.extDataSources");
     }
 }
