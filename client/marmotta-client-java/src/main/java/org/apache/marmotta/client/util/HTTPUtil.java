@@ -18,7 +18,11 @@
 package org.apache.marmotta.client.util;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 
+import javax.xml.bind.DatatypeConverter;
+
+import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpRequest;
@@ -73,6 +77,8 @@ public class HTTPUtil {
         }
         client.setRedirectStrategy(new MarmottaRedirectStrategy());
         client.setHttpRequestRetryHandler(new MarmottaHttpRequestRetryHandler());
+        
+        
         return client;
     }
 	
@@ -85,6 +91,31 @@ public class HTTPUtil {
     	}
 
         return new HttpPost(serviceUrl);
+        /*
+    	/// fab tests: it seems Marmotta's original code don't make use of the user/pwd
+    	/// when creating the httpPost
+    	/// this test is successful: setting the user/pwd as Authorization header does the trick
+    	/// But open question: there seems to be two settings for authentication: basic and digest
+    	/// -> all this should be handled here
+    	HttpPost post = new HttpPost(serviceUrl);
+    	String user = config.getMarmottaUser() ;
+    	String pwd = config.getMarmottaPassword() ;
+    	if (user != null && pwd != null) // if a user/pwd is specified, set the Authentication
+    	{
+	    	String credentials = config.getMarmottaUser() + ":" + config.getMarmottaPassword() ;
+
+	    	try {
+	    		String encoded = DatatypeConverter.printBase64Binary(credentials.getBytes("UTF-8"));
+		    	System.out.println("set Authorization header") ;
+	    		post.setHeader("Authorization", "Basic " + encoded);
+			} catch (UnsupportedEncodingException e) {
+				// no logger here, no 'error' is registered
+		    	System.out.println("set Authorization failed: "+e.getMessage()) ;
+			}
+    	}
+    	
+    	return post ;
+    	*/
 	}
 
 

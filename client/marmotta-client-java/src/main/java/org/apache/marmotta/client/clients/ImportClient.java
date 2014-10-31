@@ -118,6 +118,8 @@ public class ImportClient {
     public void uploadDataset(final InputStream in, final String mimeType) throws IOException, MarmottaClientException {
         //Preconditions.checkArgument(acceptableTypes.contains(mimeType));
 
+    	System.out.println("FC tests 2") ;
+    	 
         HttpClient httpClient = HTTPUtil.createClient(config);
 
         HttpPost post = HTTPUtil.createPost(URL_UPLOAD_SERVICE, config);
@@ -138,14 +140,12 @@ public class ImportClient {
                 switch(response.getStatusLine().getStatusCode()) {
                     case 200:
                         log.debug("dataset uploaded updated successfully");
-                        System.out.println("uploaded") ;
                         return true;
                     case 412:
                         log.error("mime type {} not acceptable by import service",mimeType);
                         return false;
                     default:
                         log.error("error uploading dataset: {} {}",new Object[] {response.getStatusLine().getStatusCode(),response.getStatusLine().getReasonPhrase()});
-                        System.out.println("error uploading: "+ response.getStatusLine().getStatusCode()) ;
                         return false;
                 }
             }

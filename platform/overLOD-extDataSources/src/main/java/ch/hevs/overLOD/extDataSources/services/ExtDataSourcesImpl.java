@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
+import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.ClientProtocolException;
@@ -66,6 +67,7 @@ import com.google.common.io.ByteStreams;
 import javax.annotation.PostConstruct;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
+import javax.xml.bind.DatatypeConverter;
 
 import ch.hevs.overLOD.extDataSources.EDSParams.EDSParams;
 import ch.hevs.overLOD.extDataSources.EDSParams.EDSParamsList;
@@ -94,11 +96,15 @@ public class ExtDataSourcesImpl implements ExtDataSources {
     private static final String URL_UPLOAD_SERVICE = "/import/upload";
     
     @PostConstruct
-    public void initialize() throws ExtDataSourcesException 
+    public void initialize() 
     {
     	log.debug("ExtDataSourcesImpl initialize() - loading EDSParams list from disk") ;
 
-    	loadEDSParamsListFromDisk() ;
+    	try {
+			loadEDSParamsListFromDisk() ;
+		} catch (ExtDataSourcesException e) {
+			log.error("ExtDataSourcesImpl.initialize(), loadEDSParamsListFromDisk() exception: " + e.getMessage() );
+		}
     }
     
     @Override
@@ -179,14 +185,15 @@ public class ExtDataSourcesImpl implements ExtDataSources {
     {
     	if (cacheEDSParamsList == null)
     	{
-    		cacheEDSParamsList = (EDSParamsList) JSONSerializationToObject(configurationService.getHome() + "/EDSParamsList.json", new EDSParamsList().getClass()) ;
+    		String EDSParamsListFile = configurationService.getHome() + "\\EDSParamsList.json" ;
+    		cacheEDSParamsList = (EDSParamsList) JSONSerializationToObject(EDSParamsListFile, new EDSParamsList().getClass()) ;
     		
         	if (cacheEDSParamsList == null)
         	{
-    	        log.info("Creating EDS file as it doesn't exist yet:" + configurationService.getHome() + "/EDSParamsList.json");
+    	        log.info("Creating EDS file as it doesn't exist yet:" + EDSParamsListFile);
         		cacheEDSParamsList = new EDSParamsList()  ;
         		
-               	serializeObjectToJSON(cacheEDSParamsList, configurationService.getHome() + "/EDSParamsList.json") ;
+               	serializeObjectToJSON(cacheEDSParamsList, EDSParamsListFile) ;
         	}
     	}
     }
@@ -205,10 +212,7 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 		try {
 	        log.debug("JSONSerialization2Object - loading: "+ filePath);
 			
-			//object = mapper.readValue(new File(filePath), objectForClass.getClass());
 	        object = mapper.readValue(new File(filePath), objectClass);
-			 
-	        log.debug("JSONSerialization2Object - done!");
 		} catch (Exception e1) {
 	        log.error("JSONSerialization2Object :" +e1.getMessage());
 	        object = null ;
@@ -308,23 +312,56 @@ public class ExtDataSourcesImpl implements ExtDataSources {
             
             // I intended to use Marmotta ImportClient to upload the data
             // but that was not working with a secured Marmotta: 401 from the ImportClient
-            // I tried specifying user/pwd in the configuration: new ClientConfiguration(marmottaURL, "fab", "Fab");
+            // I tried specifying user/pwd in the configuration: new ClientConfiguration(marmottaURL, "admin", "pass123");
             // but with no success - still getting a 401 (is the format correct) ?
-            // I finally created my own uploadDataset() here
+            // I did some test by taking user/pwd into account in HTTPUtil.createPost() and that seemed ok
+            // see commented code there
+            // But so far I keep my own uploadDataset() here
             
             ClientConfiguration configuration = new ClientConfiguration(marmottaURL);
-            /// ClientConfiguration configuration = new ClientConfiguration(marmottaURL, "admin", "pass123");
+            /*
+            // decode headerAuth to set user/pwd
+            if (headerAuth != null && !headerAuth.equals(""))             	
+            {
+            	log.debug("headerAuth specified, decoding: " + headerAuth); // "Basic YWRtaW46cGFzczEyMw=="
+            	if (headerAuth.toLowerCase().startsWith("basic "))
+            		headerAuth = headerAuth.substring(6) ;
+            	log.debug("headerAuth after removing 'basic ': " + headerAuth);
+	        	byte[] authDecodedByte= Base64.decodeBase64(headerAuth) ;
+	        	// DatatypeConverter.parseBase64Binary(headerAuth) ;
+	        	// 
+	        	log.debug("debug test: " + new String(Base64.decodeBase64("YWRtaW46cGFzczEyMw==")));
+	        	String authDecoded = new String(authDecodedByte) ;
+	        	log.debug("decoded auth: "+ authDecoded) ;
+	        	int colonPos = authDecoded.indexOf(":") ;
+	        	if (colonPos > 0)
+	        		{
+	        		String user = authDecoded.substring(0, colonPos) ;
+	        		String pwd =  authDecoded.substring(colonPos+1) ;
+	        		log.debug("Creating ClientConfiguration with user:pwd: '" + user + ":" + pwd+"'") ;
+	        		
+	        		configuration = new ClientConfiguration(marmottaURL, user, pwd);
+	        		}
+            }
+            else
+            	log.debug("no headerAuth specified");
+            	
+            ///ClientConfiguration configuration = new ClientConfiguration(marmottaURL, "admin", "pass123");
             
+            ImportClient importClient = new ImportClient(configuration);
+            
+            */
+
             configuration.setMarmottaContext(context);
-            
-            /// ImportClient importClient = new ImportClient(configuration);
-            
+
             byte[] barray = out.toString().getBytes("UTF-8");
             InputStream is = new ByteArrayInputStream(barray);
             
             uploadDataset(headerAuth, configuration, is, format.getDefaultMIMEType());
-        	/// importClient.uploadDataset(is, format.getDefaultMIMEType());
+        	//importClient.uploadDataset(is, format.getDefaultMIMEType());
+            // Another method overload exists that accept the string, and it will handle the transformation to InputStream
 			// importClient.uploadDataset(out.toString(), format.getDefaultMIMEType());
+
 		} catch (Exception e) {
 			throw new ExtDataSourcesException(e.getMessage());
 		} finally {

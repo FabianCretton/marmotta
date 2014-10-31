@@ -73,9 +73,14 @@
 
         <init-param>
             <param-name>cors.supportedHeaders</param-name>
-            <param-value>Origin, Accept, Content-Type</param-value>
+            <param-value>Origin, Accept, Content-Type, Authorization</param-value>
         </init-param>
 
+				<init-param>
+            <param-name>cors.allowOrigin</param-name>
+            <param-value>*</param-value>
+        </init-param>
+				
     </filter>
     <filter-mapping>
         <filter-name>CORS</filter-name>

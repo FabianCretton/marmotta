@@ -21,6 +21,9 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.TreeMap;
 
@@ -50,6 +53,26 @@ public class DataViewImpl implements DataView {
     @Inject
     private ConfigurationService configurationService;
 
+    String dataViewFolder ;
+
+    @PostConstruct
+    public void initialize() 
+    {
+    	dataViewFolder = configurationService.getHome() + File.separator + "dataViews" ;
+
+    	log.debug("DataViewImpl initialize() - make sure the dataViews folder does exist: " + dataViewFolder) ;
+
+        File folder = new File(dataViewFolder);
+        if (!folder.exists())
+        {
+				log.debug("dataViews folder don't exist in Marmotta-home, it will be created now.");
+				folder.mkdir() ;
+        }
+        
+        // finally add a separator for further operations
+        dataViewFolder += File.separator ;
+    }
+
     /**
      * Return the TrackingID from parameter if "dataView.GoogleAnalytics" is true
      * otherwise null
@@ -57,7 +80,6 @@ public class DataViewImpl implements DataView {
     @Override
     public String getGoogleAnalyticsTrackingID()
     {
-    	
     	if (configurationService.getBooleanConfiguration("dataView.GoogleAnalytics", false))
     		return configurationService.getStringConfiguration("dataView.GoogleAnalyticsTrackingID", null) ;
     	
@@ -69,10 +91,10 @@ public class DataViewImpl implements DataView {
     {
     	ArrayList dataViewsList = new ArrayList<String>() ;
 
-        String dataViewFolderPath = configurationService.getHome() + File.separator + "dataViews" + File.separator ;
-    	
         String fileName;
-        File folder = new File(dataViewFolderPath);
+        
+        File folder = new File(dataViewFolder);
+        
         File[] listOfFiles = folder.listFiles(); 
        
         int fileExtensionLength = fileExtension.length() ;
@@ -101,11 +123,10 @@ public class DataViewImpl implements DataView {
     public synchronized String saveDataView(String viewName, String query, boolean update) throws DataViewException {
         log.debug("saveDataView {}", viewName);
         
-        String dataViewFolderPath = configurationService.getHome() + File.separator + "dataViews" + File.separator ;
     	String dataViewFileName = viewName + fileExtension ;
     	
-        File folder = new File(dataViewFolderPath);
-        File dataViewfile = new File(dataViewFolderPath+dataViewFileName);
+        File folder = new File(dataViewFolder);
+        File dataViewfile = new File(dataViewFolder+dataViewFileName);
         
         if (!update) // add a new DataView
         {
@@ -155,11 +176,10 @@ public class DataViewImpl implements DataView {
     public synchronized String deleteDataView(String viewName)  throws DataViewException {
         log.debug("deleteDataView {}", viewName);
         
-        String dataViewFolderPath = configurationService.getHome() + File.separator + "dataViews" + File.separator ;
     	String dataViewFileName = viewName + fileExtension ;
     	
-        File folder = new File(dataViewFolderPath);
-        File dataViewfile = new File(dataViewFolderPath+dataViewFileName);
+        File folder = new File(dataViewFolder);
+        File dataViewfile = new File(dataViewFolder+dataViewFileName);
         
         if (!dataViewfile.exists())
     		throw new DataViewException("The data view '" + viewName + "' don't exist!") ;

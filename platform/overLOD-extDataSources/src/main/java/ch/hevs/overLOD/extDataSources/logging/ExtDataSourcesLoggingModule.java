@@ -60,7 +60,7 @@ public class ExtDataSourcesLoggingModule extends BaseLoggingModule {
      */
     @Override
     public String getName() {
-        return "EDS";
+        return "External Data Sources (EDS)";
     }
 
     /**

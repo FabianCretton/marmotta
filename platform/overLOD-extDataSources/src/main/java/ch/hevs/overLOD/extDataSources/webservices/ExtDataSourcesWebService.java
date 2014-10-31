@@ -210,7 +210,7 @@ public class ExtDataSourcesWebService {
     @POST
     @Path("/EDSParams")
     public Response addEDS(@HeaderParam("Authorization") String headerAuth, @HeaderParam("Content-Type") String contentType, @QueryParam("EDSType") String EDSType, @QueryParam("url") String url, @QueryParam("context") String context) {
-        log.debug("POST addEDS Content-type:{}, EDSType:{}, url:{} context:{}", contentType, EDSType, url, context);
+        log.debug("POST addEDS Authorization:{}, Content-type:{}, EDSType:{}, url:{} context:{}", headerAuth, contentType, EDSType, url, context);
        
         String importWithLDClientResultString = "" ;
         
@@ -237,7 +237,6 @@ public class ExtDataSourcesWebService {
         catch(ExtDataSourcesException e){
         	return Response.status(Status.BAD_GATEWAY).entity(e.getMessage()).build();
         }
-
 
         // Start the import using  LDClient
         try {

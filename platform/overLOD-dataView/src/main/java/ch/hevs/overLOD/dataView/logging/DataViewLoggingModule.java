@@ -60,7 +60,7 @@ public class DataViewLoggingModule extends BaseLoggingModule {
      */
     @Override
     public String getName() {
-        return "DataView";
+        return "Data View";
     }
 
     /**

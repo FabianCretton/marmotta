@@ -17,8 +17,8 @@ function DVList(id,host) {
 			loader.show() ;
 
 			container.empty() ;
-			container.append($("<h2></h2>").append("Data Views").append(loader));
-			container.append($("<p></p>").append("Configured Data views:")) ;
+			container.append($("<h2></h2>").append("Configured Data Views").append(loader));
+			// container.append($("<p></p>").append("Configured Data views:")) ;
 			
       var listTable = $("<table></table>").addClass("simple_table");
 			listTable.attr('id', 'DVTable') ;
