@@ -17,15 +17,6 @@
  */
 package org.apache.marmotta.client.util;
 
-<<<<<<< HEAD
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-
-import javax.xml.bind.DatatypeConverter;
-
-import org.apache.commons.codec.binary.Base64;
-=======
->>>>>>> de32eca78d7f032be993c7e6bfef394d05625425
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.*;
 import org.apache.http.client.HttpClient;
@@ -90,47 +81,10 @@ public class HTTPUtil {
             cm.setMaxTotal(100);
             httpClientBuilder.setConnectionManager(cm);
         }
-<<<<<<< HEAD
-        client.setRedirectStrategy(new MarmottaRedirectStrategy());
-        client.setHttpRequestRetryHandler(new MarmottaHttpRequestRetryHandler());
-        
-        
-        return client;
-=======
 
         return httpClientBuilder.build();
->>>>>>> de32eca78d7f032be993c7e6bfef394d05625425
     }
 
-<<<<<<< HEAD
-        return new HttpPost(serviceUrl);
-        /*
-    	/// fab tests: it seems Marmotta's original code don't make use of the user/pwd
-    	/// when creating the httpPost
-    	/// this test is successful: setting the user/pwd as Authorization header does the trick
-    	/// But open question: there seems to be two settings for authentication: basic and digest
-    	/// -> all this should be handled here
-    	HttpPost post = new HttpPost(serviceUrl);
-    	String user = config.getMarmottaUser() ;
-    	String pwd = config.getMarmottaPassword() ;
-    	if (user != null && pwd != null) // if a user/pwd is specified, set the Authentication
-    	{
-	    	String credentials = config.getMarmottaUser() + ":" + config.getMarmottaPassword() ;
-
-	    	try {
-	    		String encoded = DatatypeConverter.printBase64Binary(credentials.getBytes("UTF-8"));
-		    	System.out.println("set Authorization header") ;
-	    		post.setHeader("Authorization", "Basic " + encoded);
-			} catch (UnsupportedEncodingException e) {
-				// no logger here, no 'error' is registered
-		    	System.out.println("set Authorization failed: "+e.getMessage()) ;
-			}
-    	}
-    	
-    	return post ;
-    	*/
-	}
-=======
     public static HttpPost createPost(String path, ClientConfiguration config) throws URISyntaxException {
         final URIBuilder uriBuilder = new URIBuilder(config.getMarmottaUri());
         uriBuilder.setPath(uriBuilder.getPath() + path);
@@ -153,7 +107,6 @@ public class HTTPUtil {
 
         return post;
     }
->>>>>>> de32eca78d7f032be993c7e6bfef394d05625425
 
 
     private static class MarmottaRedirectStrategy extends DefaultRedirectStrategy {
