@@ -17,36 +17,41 @@
  */
 package org.apache.marmotta.client.util;
 
+<<<<<<< HEAD
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 
 import javax.xml.bind.DatatypeConverter;
 
 import org.apache.commons.codec.binary.Base64;
+=======
+>>>>>>> de32eca78d7f032be993c7e6bfef394d05625425
 import org.apache.commons.lang3.StringUtils;
-import org.apache.http.Header;
-import org.apache.http.HttpRequest;
-import org.apache.http.HttpResponse;
-import org.apache.http.HttpStatus;
-import org.apache.http.ProtocolException;
+import org.apache.http.*;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.HttpRequestRetryHandler;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpHead;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.params.ClientPNames;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.impl.client.DefaultRedirectStrategy;
-import org.apache.http.params.BasicHttpParams;
-import org.apache.http.params.CoreConnectionPNames;
-import org.apache.http.params.CoreProtocolPNames;
-import org.apache.http.params.HttpParams;
+import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.config.Registry;
+import org.apache.http.config.RegistryBuilder;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.conn.socket.PlainConnectionSocketFactory;
+import org.apache.http.impl.client.*;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.protocol.HttpContext;
 import org.apache.marmotta.client.ClientConfiguration;
 
+import javax.xml.bind.DatatypeConverter;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URISyntaxException;
+
 /**
  * HTTP Utilities
- * 
+ *
  * @author Sebastian Schaffert
  * @author Sergio Fernández
  */
@@ -54,42 +59,50 @@ public class HTTPUtil {
 
     private static final String CONTEXT = "context";
 
-	public static HttpClient createClient(ClientConfiguration config) {
+    public static HttpClient createClient(ClientConfiguration config) {
+        return createClient(config, config.getMarmottaContext());
+    }
 
-        HttpParams httpParams = new BasicHttpParams();
-        httpParams.setParameter(CoreProtocolPNames.USER_AGENT, "Marmotta Client Library/"+ MetaUtil.getVersion());
+    public static HttpClient createClient(ClientConfiguration config, String context) {
 
-        httpParams.setIntParameter(CoreConnectionPNames.SO_TIMEOUT, config.getSoTimeout());
-        httpParams.setIntParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, config.getConnectionTimeout());
+        final HttpClientBuilder httpClientBuilder = HttpClients.custom();
 
-        httpParams.setBooleanParameter(ClientPNames.HANDLE_REDIRECTS,true);
-        httpParams.setIntParameter(ClientPNames.MAX_REDIRECTS,3);
+        httpClientBuilder.setUserAgent("Marmotta Client Library/" + MetaUtil.getVersion());
+        httpClientBuilder.setRedirectStrategy(new MarmottaRedirectStrategy());
+        httpClientBuilder.setRetryHandler(new MarmottaHttpRequestRetryHandler());
 
-        if (StringUtils.isNotBlank(config.getMarmottaContext())) {
-        	httpParams.setParameter(CONTEXT, config.getMarmottaContext());
-        }
-        
-        DefaultHttpClient client;
+        final RequestConfig.Builder requestConfigBuilder = RequestConfig.custom();
+        requestConfigBuilder.setSocketTimeout(config.getSoTimeout());
+        requestConfigBuilder.setConnectTimeout(config.getConnectionTimeout());
+        requestConfigBuilder.setRedirectsEnabled(true);
+        requestConfigBuilder.setMaxRedirects(3);
+        httpClientBuilder.setDefaultRequestConfig(requestConfigBuilder.build());
+
         if (config.getConectionManager() != null) {
-            client = new DefaultHttpClient(config.getConectionManager(), httpParams);
+            httpClientBuilder.setConnectionManager(config.getConectionManager());
         } else {
-            client = new DefaultHttpClient(httpParams);
+            final Registry<ConnectionSocketFactory> registry = RegistryBuilder.<ConnectionSocketFactory>create()
+                    .register("http", PlainConnectionSocketFactory.getSocketFactory())
+                    //.register("https", )
+                    .build();
+
+            final PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager(registry);
+            cm.setMaxTotal(100);
+            httpClientBuilder.setConnectionManager(cm);
         }
+<<<<<<< HEAD
         client.setRedirectStrategy(new MarmottaRedirectStrategy());
         client.setHttpRequestRetryHandler(new MarmottaHttpRequestRetryHandler());
         
         
         return client;
-    }
-	
-	public static HttpPost createPost(String path, ClientConfiguration config) {
-    	String serviceUrl = config.getMarmottaUri() + path ;
-    	
-    	//FIXME: switch to a more elegant way, such as Jersey's UriBuilder
-    	if (StringUtils.isNotBlank(config.getMarmottaContext())) {
-    		serviceUrl += "?" + CONTEXT + "=" + config.getMarmottaContext();
-    	}
+=======
 
+        return httpClientBuilder.build();
+>>>>>>> de32eca78d7f032be993c7e6bfef394d05625425
+    }
+
+<<<<<<< HEAD
         return new HttpPost(serviceUrl);
         /*
     	/// fab tests: it seems Marmotta's original code don't make use of the user/pwd
@@ -117,6 +130,30 @@ public class HTTPUtil {
     	return post ;
     	*/
 	}
+=======
+    public static HttpPost createPost(String path, ClientConfiguration config) throws URISyntaxException {
+        final URIBuilder uriBuilder = new URIBuilder(config.getMarmottaUri());
+        uriBuilder.setPath(uriBuilder.getPath() + path);
+
+        if (StringUtils.isNotBlank(config.getMarmottaContext())) {
+            uriBuilder.addParameter(CONTEXT, config.getMarmottaContext());
+        }
+
+        final HttpPost post = new HttpPost(uriBuilder.build());
+
+        if (StringUtils.isNotBlank(config.getMarmottaUser()) && StringUtils.isNotBlank(config.getMarmottaUser())) {
+            final String credentials = String.format("%s;%s", config.getMarmottaUser(), config.getMarmottaPassword());
+            try {
+                final String encoded = DatatypeConverter.printBase64Binary(credentials.getBytes("UTF-8"));
+                post.setHeader("Authorization", String.format("Basic %s", encoded));
+            } catch (UnsupportedEncodingException e) {
+                System.err.println("Error encoding credentials: " + e.getMessage());
+            }
+        }
+
+        return post;
+    }
+>>>>>>> de32eca78d7f032be993c7e6bfef394d05625425
 
 
     private static class MarmottaRedirectStrategy extends DefaultRedirectStrategy {
@@ -157,7 +194,7 @@ public class HTTPUtil {
          *                       unsuccessfully executed
          * @param context        the context for the request execution
          * @return <code>true</code> if the method should be retried, <code>false</code>
-         *         otherwise
+         * otherwise
          */
         @Override
         public boolean retryRequest(IOException exception, int executionCount, HttpContext context) {
@@ -165,5 +202,5 @@ public class HTTPUtil {
         }
     }
 
-    
+
 }

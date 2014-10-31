@@ -38,7 +38,7 @@ public class SQLFragment extends SQLClause {
      * always place it in JOIN conditions, because the first pattern will not have a JOIN.
      */
     public static enum ConditionPosition {
-        JOIN, WHERE
+        JOIN, WHERE, HAVING
     };
 
 
@@ -151,22 +151,25 @@ public class SQLFragment extends SQLClause {
      * Build the combined condition clause for this fragment. This will be the empty string when the conditionPosition is JOIN.
      * @return
      */
+    @Override
     public String buildConditionClause() {
         StringBuilder conditionClause = new StringBuilder();
 
-        if(conditionPosition == ConditionPosition.WHERE) {
+        if(conditionPosition == ConditionPosition.WHERE || conditionPosition == ConditionPosition.HAVING) {
             for (Iterator<SQLClause> it = Iterators.concat(patterns.iterator(), subqueries.iterator()); it.hasNext(); ) {
                 SQLClause p = it.next();
 
                 // in case we add the condition to the JOIN, build first the conditions for the pattern; otherwise, the
                 // conditions for the pattern will be added to the WHERE clause
-                if(conditionClause.length() > 0) {
+                if (conditionClause.length() > 0) {
                     conditionClause.append("\n       AND ");
                 }
                 conditionClause.append(p.buildConditionClause());
 
             }
+        }
 
+        if(conditionPosition == ConditionPosition.WHERE) {
             // in case the pattern is the last of the fragment, also add the filter conditions of the fragment
             // if this is the last pattern of the fragment, add the filter conditions
             for(Iterator<String> cit = getConditions().iterator(); cit.hasNext(); ) {

@@ -21,6 +21,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URISyntaxException;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -112,19 +113,33 @@ public class ImportClient {
      *
      * @param in InputStream to read the dataset from; will be consumed by this method
      * @param mimeType mime type of the input data
+     * @param context named graph to import in
      * @throws IOException
      * @throws MarmottaClientException
      */
-    public void uploadDataset(final InputStream in, final String mimeType) throws IOException, MarmottaClientException {
-        //Preconditions.checkArgument(acceptableTypes.contains(mimeType));
+    public void uploadDataset(final InputStream in, final String mimeType, final String context) throws IOException, MarmottaClientException, URISyntaxException {
+        HttpClient httpClient = HTTPUtil.createClient(config, context);
+        uploadDataset(in, mimeType, httpClient);
+    }
 
-    	System.out.println("FC tests 2") ;
-    	 
+    /**
+     * Upload/Import a dataset in the Marmotta Server. The dataset is given as an Inputstream that contains data of the
+     * mime type passed as argument. The mime type must be one of the acceptable types of the server.
+     *
+     * @param in InputStream to read the dataset from; will be consumed by this method
+     * @param mimeType mime type of the input data
+     * @throws IOException
+     * @throws MarmottaClientException
+     */
+    public void uploadDataset(final InputStream in, final String mimeType) throws IOException, MarmottaClientException, URISyntaxException {
         HttpClient httpClient = HTTPUtil.createClient(config);
+        uploadDataset(in, mimeType, httpClient);
+    }
 
+    private void uploadDataset(final InputStream in, final String mimeType, HttpClient httpClient) throws IOException, URISyntaxException {
         HttpPost post = HTTPUtil.createPost(URL_UPLOAD_SERVICE, config);
         post.setHeader("Content-Type", mimeType);
-        
+
         ContentProducer cp = new ContentProducer() {
             @Override
             public void writeTo(OutputStream outstream) throws IOException {
@@ -132,7 +147,7 @@ public class ImportClient {
             }
         };
         post.setEntity(new EntityTemplate(cp));
-        
+
         ResponseHandler<Boolean> handler = new ResponseHandler<Boolean>() {
             @Override
             public Boolean handleResponse(HttpResponse response) throws ClientProtocolException, IOException {
@@ -159,7 +174,6 @@ public class ImportClient {
         } finally {
             post.releaseConnection();
         }
-
     }
 
     /**
@@ -171,8 +185,22 @@ public class ImportClient {
      * @throws IOException
      * @throws MarmottaClientException
      */
-    public void uploadDataset(String data, String mimeType) throws IOException, MarmottaClientException {
+    public void uploadDataset(String data, String mimeType) throws IOException, MarmottaClientException, URISyntaxException {
         uploadDataset(new ByteArrayInputStream(data.getBytes("utf-8")), mimeType);
+    }
+
+    /**
+     * Upload the data contained in the string using the given mime type; convenience method wrapping the generic
+     * InputStream-based method.
+     *
+     * @param data
+     * @param mimeType
+     * @param context
+     * @throws IOException
+     * @throws MarmottaClientException
+     */
+    public void uploadDataset(String data, String mimeType, String context) throws IOException, MarmottaClientException, URISyntaxException {
+        uploadDataset(new ByteArrayInputStream(data.getBytes("utf-8")), mimeType, context);
     }
 
 }
