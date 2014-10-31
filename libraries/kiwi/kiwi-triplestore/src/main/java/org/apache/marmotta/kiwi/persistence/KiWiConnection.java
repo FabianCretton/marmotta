@@ -732,7 +732,7 @@ public class KiWiConnection implements AutoCloseable {
     public KiWiDateLiteral loadLiteral(Date date) throws SQLException {
         // look in cache
         KiWiLiteral element = literalCache.get(LiteralCommons.createCacheKey(DateUtils.getDateWithoutFraction(date),Namespaces.NS_XSD + "dateTime"));
-        if(element != null) {
+        if(element != null && element instanceof KiWiDateLiteral) {
             return (KiWiDateLiteral)element;
         }
 
@@ -785,8 +785,8 @@ public class KiWiConnection implements AutoCloseable {
      */
     public KiWiIntLiteral loadLiteral(long value) throws SQLException {
         // look in cache
-        KiWiLiteral element = literalCache.get(LiteralCommons.createCacheKey(Long.toString(value),null,Namespaces.NS_XSD + "integer"));
-        if(element != null) {
+        KiWiLiteral element = literalCache.get(LiteralCommons.createCacheKey(Long.toString(value),(String)null,Namespaces.NS_XSD + "integer"));
+        if(element != null && element instanceof KiWiIntLiteral) {
             return (KiWiIntLiteral)element;
         }
 
@@ -840,8 +840,8 @@ public class KiWiConnection implements AutoCloseable {
      */
     public KiWiDoubleLiteral loadLiteral(double value) throws SQLException {
         // look in cache
-        KiWiLiteral element = literalCache.get(LiteralCommons.createCacheKey(Double.toString(value),null,Namespaces.NS_XSD + "double"));
-        if(element != null) {
+        KiWiLiteral element = literalCache.get(LiteralCommons.createCacheKey(Double.toString(value),(String)null,Namespaces.NS_XSD + "double"));
+        if(element != null && element instanceof KiWiDoubleLiteral) {
             return (KiWiDoubleLiteral)element;
         }
 
@@ -894,8 +894,8 @@ public class KiWiConnection implements AutoCloseable {
      */
     public KiWiBooleanLiteral loadLiteral(boolean value) throws SQLException {
         // look in cache
-        KiWiLiteral element = literalCache.get(LiteralCommons.createCacheKey(Boolean.toString(value),null,Namespaces.NS_XSD + "boolean"));
-        if(element != null) {
+        KiWiLiteral element = literalCache.get(LiteralCommons.createCacheKey(Boolean.toString(value),(String)null,Namespaces.NS_XSD + "boolean"));
+        if(element != null && element instanceof KiWiBooleanLiteral) {
             return (KiWiBooleanLiteral)element;
         }
 

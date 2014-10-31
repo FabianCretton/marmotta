@@ -170,7 +170,7 @@ public class SQLBuilder {
     }
 
     private void prepareBuilder()  throws UnsatisfiableQueryException {
-        Preconditions.checkArgument(query instanceof Union || query instanceof Extension || query instanceof Order || query instanceof Group || query instanceof LeftJoin ||query instanceof Join || query instanceof Filter || query instanceof StatementPattern || query instanceof Distinct || query instanceof Slice || query instanceof Reduced);
+        Preconditions.checkArgument(query instanceof Projection || query instanceof Union || query instanceof Extension || query instanceof Order || query instanceof Group || query instanceof LeftJoin ||query instanceof Join || query instanceof Filter || query instanceof StatementPattern || query instanceof Distinct || query instanceof Slice || query instanceof Reduced);
 
 
         // collect all patterns in a list, using depth-first search over the join
@@ -483,12 +483,12 @@ public class SQLBuilder {
         // and we need to mark the pattern accordingly.
         boolean first = true;
         for(SQLFragment f : fragments) {
-            if(first) {
+            if(first && f.getConditionPosition() == SQLFragment.ConditionPosition.JOIN) {
                 // the conditions of the first fragment need to be placed in the WHERE part of the query, because
                 // there is not necessarily a JOIN ... ON where we can put it
                 f.setConditionPosition(SQLFragment.ConditionPosition.WHERE);
-                first = false;
             }
+            first = false;
 
             for (SQLPattern p : f.getPatterns()) {
                 for(Map.Entry<SQLPattern.TripleColumns, Var> fieldEntry : p.getTripleFields().entrySet()) {
@@ -584,7 +584,7 @@ public class SQLBuilder {
         // 1. for the first pattern of the first fragment, we add the conditions to the WHERE clause
 
         for(SQLFragment fragment : fragments) {
-            if(fragment.getConditionPosition() == SQLFragment.ConditionPosition.WHERE) {
+            if(fragment.getConditionPosition() != SQLFragment.ConditionPosition.JOIN) {
                 whereConditions.add(fragment.buildConditionClause());
             }
         }
@@ -623,6 +623,43 @@ public class SQLBuilder {
         }
         return whereClause;
     }
+
+    private StringBuilder buildHavingClause()  {
+
+        // list of where conditions that will later be connected by AND
+        List<CharSequence> havingConditions = new LinkedList<CharSequence>();
+
+        // 1. for the first pattern of the first fragment, we add the conditions to the WHERE clause
+
+        for(SQLFragment fragment : fragments) {
+            if(fragment.getConditionPosition() == SQLFragment.ConditionPosition.HAVING) {
+                StringBuilder conditionClause = new StringBuilder();
+                for(Iterator<String> cit = fragment.getConditions().iterator(); cit.hasNext(); ) {
+                    if(conditionClause.length() > 0) {
+                        conditionClause.append("\n       AND ");
+                    }
+                    conditionClause.append(cit.next());
+                }
+
+                havingConditions.add(conditionClause);
+            }
+        }
+
+        // construct the having clause
+        StringBuilder havingClause = new StringBuilder();
+        for(Iterator<CharSequence> it = havingConditions.iterator(); it.hasNext(); ) {
+            CharSequence condition = it.next();
+            if(condition.length() > 0) {
+                havingClause.append(condition);
+                havingClause.append("\n ");
+                if (it.hasNext()) {
+                    havingClause.append("AND ");
+                }
+            }
+        }
+        return havingClause;
+    }
+
 
     private StringBuilder buildOrderClause() {
         StringBuilder orderClause = new StringBuilder();
@@ -929,7 +966,7 @@ public class SQLBuilder {
             if((XMLSchema.DOUBLE.toString().equals(fc.getURI()) || XMLSchema.FLOAT.toString().equals(fc.getURI()) ) &&
                     fc.getArgs().size() == 1) {
                 return evaluateExpression(fc.getArgs().get(0), OPTypes.DOUBLE);
-            } else if(XMLSchema.INTEGER.toString().equals(fc.getURI()) && fc.getArgs().size() == 1) {
+            } else if((XMLSchema.INTEGER.toString().equals(fc.getURI()) || XMLSchema.INT.toString().equals(fc.getURI())) && fc.getArgs().size() == 1) {
                 return evaluateExpression(fc.getArgs().get(0), OPTypes.INT);
             } else if(XMLSchema.BOOLEAN.toString().equals(fc.getURI()) && fc.getArgs().size() == 1) {
                 return evaluateExpression(fc.getArgs().get(0), OPTypes.BOOL);
@@ -1174,6 +1211,7 @@ public class SQLBuilder {
         StringBuilder whereClause  = buildWhereClause();
         StringBuilder orderClause  = buildOrderClause();
         StringBuilder groupClause  = buildGroupClause();
+        StringBuilder havingClause = buildHavingClause();
         StringBuilder limitClause  = buildLimitClause();
 
 
@@ -1188,6 +1226,10 @@ public class SQLBuilder {
 
         if(groupClause.length() > 0) {
             queryString.append("GROUP BY ").append(groupClause).append("\n ");
+        }
+
+        if(havingClause.length() > 9) {
+            queryString.append("HAVING ").append(havingClause).append("\n ");
         }
 
         if(orderClause.length() > 0) {
