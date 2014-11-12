@@ -110,6 +110,7 @@ public class DataViewWebService {
      * @param viewName the name of the predefined view that is requested
      * @param mimeTypeAsParam the required mimeType of sparql results can be passed as Header\Accept or in the 'format' params, exemples are "application/sparql-results+json", "application/sparql-results+xml", "text/csv" 
      * @HTTP 200 in case the query was executed successfully
+     * @HTTP 400 if a querystring parameter is missing
      * @HTTP 500 in case there was an error during the execution
      * @return the view's query result in the format passed as argument in case of success, otherwise an error message
      */
@@ -150,7 +151,7 @@ public class DataViewWebService {
         
         try
         {
-        	query = readDataViewQuery(viewName) ;
+        	query = dataViewService.readDataViewQuery(viewName) ;
         }
         catch (IOException e) {
 			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error accessing the query file corresponding to the view '"+viewName+"' !").build();
@@ -186,6 +187,7 @@ public class DataViewWebService {
      * @param viewName the name of the view which will be the name of the file, must be a non-existing name
      * @param query the SPARQL query 
      * @HTTP 200 in case the query was executed successfully
+     * @HTTP 400 if a querystring parameter is missing
      * @HTTP 500 in case there was an error during the execution
      * @return a success or error message
      */
@@ -261,6 +263,7 @@ public class DataViewWebService {
      * @param headerAuth http authentication
      * @param viewName the name of the view which will be the name of the file, must be a non-existing name
      * @HTTP 200 in case the query was executed successfully
+     * @HTTP 400 if a querystring parameter is missing
      * @HTTP 500 in case there was an error during the execution
      * @return a success or error message
      */
@@ -291,6 +294,7 @@ public class DataViewWebService {
      * Get the SPARQL query corresponding to a predefined DataView (a predefined query)
      * @param viewName the name of the predefined view that is requested
      * @HTTP 200 in case the query was executed successfully
+     * @HTTP 400 if a querystring parameter is missing
      * @HTTP 500 in case there was an error during the execution
      * @return the SPARQL query as a string, otherwise an error message
      */
@@ -312,7 +316,7 @@ public class DataViewWebService {
         
         try
         {
-        	query = readDataViewQuery(viewName) ;
+        	query = dataViewService.readDataViewQuery(viewName) ;
         }
         catch (IOException e) {
 			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error accessing the query file corresponding to the view '"+viewName+"' !").build();
@@ -322,7 +326,10 @@ public class DataViewWebService {
     }    
     /*
      * Read the SPARQL query corresponding to a viewName and return the string
+     * 
+     * MOVED TO dataViewImpl
      */
+    /*
     public String readDataViewQuery(String viewName) throws IOException
     {
     String query = null ;
@@ -348,6 +355,8 @@ public class DataViewWebService {
 		
 		return query ;
     }
+    */
+    
     /*
      * actual implementation of getDataView
      * to return the result of the SPARQL query associated to the DataView

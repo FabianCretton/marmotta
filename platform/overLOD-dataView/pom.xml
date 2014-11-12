@@ -119,6 +119,11 @@
             <artifactId>marmotta-client-java</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.github.tkurz.webjars</groupId>
+            <artifactId>squebi</artifactId>
+            <version>0.0.9</version>
+        </dependency>
         <!-- For google analytics - testing -->
 		<dependency>
 		    <groupId>com.brsanthu</groupId>

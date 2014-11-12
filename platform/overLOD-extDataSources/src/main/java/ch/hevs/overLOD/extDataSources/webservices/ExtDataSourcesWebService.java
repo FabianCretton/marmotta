@@ -115,7 +115,8 @@ public class ExtDataSourcesWebService {
     }
     
     /*
-     * The actual implementation of adding an EDS and launching the data load
+     * The first implementation of adding an RDF file as EDS and launching the data load
+     * DEPRECATED as the import is now based on LDClient
      * 
      * Import a file from URL, by calling the 'import' web service
      * That web service will start a thread to load the data asynchronously
@@ -187,17 +188,22 @@ public class ExtDataSourcesWebService {
     
     /**
      * Add a new External Data Source parameters
-     * Depending on the type (EDSType), different actions are taken:
-     * 	RDFFile: launch the asynchronous loading process based on the Import web service
-     *  LinkedData: call LDClient for linked data resource
+     * RDF files and Linked Data are currently handled using LDClient
+     *  Make sure the RDFFileProvider and RDFFileEndpoint are registered in LDClient for the
+     * 	RDF files handling to work correctly
      * 
      * @param headerAuth http authentication
      * @param contentType mimetype of the data source
      * @param context Named Graph to which the file is uploaded in the store
-     * @param EDSType a predefined value for the type of EDS - so far only 'RDFFile' is used 
+     * @param EDSType a predefined value for the type of EDS - as 'RDFFile'
      * @param url address of the file to be uploaded
+     * @param filterFileName name of file (including file extension) that will allow to import only part of the data using a SPARQL CONSTRUCT query. This file must be available in the folder %marmotta-home%/EDS/EDSFilters/. (OPTIONAL - don't specify it to import the all data)
+     * @param validationFileName name of file (including file extension) that will allow to check the data validity using SPIN constraints. This file must be available in the folder %marmotta-home%/EDS/SPIN/Constraints/. (OPTIONAL - don't specify it to import data without validation)
+     * 
      * @HTTP 200 in case the query was executed successfully
+     * @HTTP 400 if a querystring parameter is missing
      * @HTTP 500 in case there was an error during the execution
+     * @HTTP 502 in case there was an error while accessing the specified URL
      * @return a string which is either a validation message or an error message
      */
     /*
@@ -209,21 +215,21 @@ public class ExtDataSourcesWebService {
      */
     @POST
     @Path("/EDSParams")
-    public Response addEDS(@HeaderParam("Authorization") String headerAuth, @HeaderParam("Content-Type") String contentType, @QueryParam("EDSType") String EDSType, @QueryParam("url") String url, @QueryParam("context") String context) {
-        log.debug("POST addEDS Authorization:{}, Content-type:{}, EDSType:{}, url:{} context:{}", headerAuth, contentType, EDSType, url, context);
+    public Response addEDS(@HeaderParam("Authorization") String headerAuth, @HeaderParam("Content-Type") String contentType, @QueryParam("EDSType") String EDSType, @QueryParam("url") String url, @QueryParam("context") String context,
+    		@QueryParam("filterFileName") String filterFileName, @QueryParam("validationFileName") String validationFileName) 
+    {
+        log.debug("POST addEDS Authorization:{}, Content-type:{}, EDSType:{}, url:{} context:{} filterFileName:{} validationFileName:{}", headerAuth, contentType, EDSType, url, context, filterFileName, validationFileName);
        
         String importWithLDClientResultString = "" ;
         
         if (StringUtils.isBlank(context))
-            return Response.status(Status.NOT_ACCEPTABLE).entity("Web Service call error: missing 'context' parameter").build();
+            return Response.status(Status.BAD_REQUEST).entity("Web Service call error: missing 'context' parameter").build();
         if (StringUtils.isBlank(url))
-            return Response.status(Status.NOT_ACCEPTABLE).entity("Web Service call error: missing 'url' parameter").build();
+            return Response.status(Status.BAD_REQUEST).entity("Web Service call error: missing 'url' parameter").build();
         if (StringUtils.isBlank(EDSType))
-            return Response.status(Status.NOT_ACCEPTABLE).entity("Web Service call error: missing 'EDSType' parameter").build();
+            return Response.status(Status.BAD_REQUEST).entity("Web Service call error: missing 'EDSType' parameter").build();
         
-        /*
-         * Test that  this context does not exist already
-         */
+        // Ensure that the context for the new EDS don't exist
         if (contextService.getContext(context) != null) // if the context don't exist, null is returned
 			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error - a new EDS can't be created with an existing context").build();
         
@@ -240,21 +246,10 @@ public class ExtDataSourcesWebService {
 
         // Start the import using  LDClient
         try {
-        	importWithLDClientResultString = edsService.importWithLDClient(uri.getBaseUri().toString(), headerAuth, EDSType, url, context) ;
+        	importWithLDClientResultString = edsService.importWithLDClient(uri.getBaseUri().toString(), headerAuth, EDSType, url, context, filterFileName, validationFileName) ;
 
-    		/*
-    		 * Former code which was using the "import" service for RDF files
-    		 * and LDClient for linked data
-        	switch(EDSType)
-        	{
-        	case "RDFFile":
-    			callImportWS4RDFFile(headerAuth, contentType, url, context) ;
-    			break ;
-        	case "LinkedData":
-        		edsService.importWithLDClient(uri.getBaseUri().toString(), headerAuth, "LinkedData", url, context) ;
-        		break ;
-        	}
-        	*/
+    		 // Former code which was using the "import" service for RDF files
+        	 // callImportWS4RDFFile(headerAuth, contentType, url, context) ;
 		} catch (ExtDataSourcesException e) {
 			return Response.status(Status.INTERNAL_SERVER_ERROR).entity(e.getMessage()).build();
 		}
@@ -262,7 +257,7 @@ public class ExtDataSourcesWebService {
         // If import done or started, save the EDS parameters
         try {
         	// then return the confirmation string returned by importWithLD
-        	edsService.addEDSParams(EDSType, contentType, url, context, String.valueOf(timeStamp)) ;        	
+        	edsService.addEDSParams(EDSType, contentType, url, context, String.valueOf(timeStamp), filterFileName, validationFileName) ;        	
 			return Response.ok(importWithLDClientResultString).build();
 		} catch (ExtDataSourcesException e) {
 			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error - The import is running, but an error occured while saving External Data Source parameters: "+ e.getMessage()).build();
@@ -271,14 +266,15 @@ public class ExtDataSourcesWebService {
 
     /*
      * For a URL: test that the URL is accessible
-     * The Marmotta's import web service does a test with only "conn.connect()"
+     * 
+     * For information: the Marmotta's import web service does a test with only "conn.connect()"
      * But that test will succeed if the host is accessible, 
      * which doesn't mean that the specific resource is accessible.
-     * So here I test with a request to the "HEAD"
+     * The test here request HTTP "HEAD"
+     * 
      * Handling a timeout could improve this test
      * 
      * Throws an exception if the url can't be accessed
-     * 
      * Return the long value of conn.getLastModified(): milliseconds since 01.01.1970
      * if that value is '0', return the long value of conn.getExpiration()
      */
@@ -293,8 +289,9 @@ public class ExtDataSourcesWebService {
 	    try {
 			finalUrl = new URL(url);
 	        conn = (HttpURLConnection) finalUrl.openConnection();
-	        //conn.connect();
+	        log.debug("connection open") ;
 	        conn.setRequestMethod("HEAD");
+	        log.debug("request head") ;
 	        int responseCode = conn.getResponseCode() ;
 	        
 	        if (responseCode != 200) {
@@ -331,11 +328,12 @@ public class ExtDataSourcesWebService {
     }
     /**
      * Update an existing External Data Source with the current content of the external file
-     * Achieved by deleting the existing context, then launching the asynchronous loading process
+     * Achieved by deleting the existing context, then re-importing the data from the source
      * 
      * @param headerAuth http authentication
      * @param context Named Graph that identifies the EDS and correspond to its context in the store
      * @HTTP 200 in case the query was executed successfully
+     * @HTTP 400 if a querystring parameter is missing
      * @HTTP 500 in case there was an error during the execution
      * @return a string which is either a validation message or an error message
      */
@@ -351,7 +349,7 @@ public class ExtDataSourcesWebService {
         log.debug("PUT updateEDS context:{}", context);
 
         if (StringUtils.isBlank(context))
-            return Response.status(Status.NOT_ACCEPTABLE).entity("Web Service call error: missing 'context' parameter").build();
+            return Response.status(Status.BAD_REQUEST).entity("Web Service call error: missing 'context' parameter").build();
 
         // EDSType (and mime-type ?) must be read from the stored EDS
         EDSParams theEDSParams = edsService.getEDSParams(context) ;
@@ -382,7 +380,7 @@ public class ExtDataSourcesWebService {
         // is appended to the success message
        	String updateTimeStampErrorMsg = updateTimeStamp(theEDSParams, timeStamp) ;
         
-		return Response.ok("The EDS is currently updating." + updateTimeStampErrorMsg).build();
+		return Response.ok("The EDS was updated successfuly." + updateTimeStampErrorMsg).build();
     }
     
     /**
@@ -400,7 +398,8 @@ public class ExtDataSourcesWebService {
 		
 	    // Then re-start the import
 	    try {
-			callImportWS4RDFFile(headerAuth, theEDSParams.contentType, theEDSParams.url, theEDSParams.context) ;
+        	edsService.importWithLDClient(uri.getBaseUri().toString(), headerAuth,  theEDSParams.contentType, theEDSParams.url, theEDSParams.context, theEDSParams.filterFileName, theEDSParams.validationFileName) ;
+			// callImportWS4RDFFile(headerAuth, theEDSParams.contentType, theEDSParams.url, theEDSParams.context) ;
 		} catch (ExtDataSourcesException e) {
 			throw new ExtDataSourcesException(e.getMessage()) ;
 		}
@@ -431,8 +430,8 @@ public class ExtDataSourcesWebService {
 	 * @param context the graph (context) of the EDS, which is used to identify the EDS
 	 * @param deleteGraph if false: delete only the EDS configuration, otherwise delete the graph (context) as well 
      * @HTTP 200 in case the delete was executed successfully
+     * @HTTP 400 if a querystring parameter is missing
      * @HTTP 500 in case there was an error during the execution
-	 * @return
 	 */
     @DELETE
     @Path("/EDSParams")
@@ -442,7 +441,7 @@ public class ExtDataSourcesWebService {
     	boolean deleteSuccessful = true ;
     	
         if (StringUtils.isBlank(context)) {
-            return Response.status(Status.NOT_ACCEPTABLE).entity("Web Service call error: missing 'context' parameter").build();
+            return Response.status(Status.BAD_REQUEST).entity("Web Service call error: missing 'context' parameter").build();
         } else {
         	if (deleteGraph)
         		deleteSuccessful = contextService.removeContext(context);

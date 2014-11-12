@@ -113,36 +113,4 @@ public class DataViewWebServiceTest {
 		      .get("/dataView");
 		*/
     }    
-    @Test
-    public void testHello() {
-        /*
-         * GET ?name=<xxx>
-         */
-        RestAssured.given()
-                .param("name", "Steve")
-            .expect()
-                .content(containsString("Hello Steve"))
-            .when()
-                .get("/dataView/hello");
-
-        RestAssured.expect()
-                .statusCode(400)
-            .when()
-                .get("/dataView/hello");
-    }
-
-    @Test
-    public void testNonAsciiHello() {
-        /*
-         * GET ?name=<xxx>
-         */
-        RestAssured.given()
-                .param("name", "Jürgen")
-            .expect()
-                .contentType(ContentType.TEXT)
-                .content(containsString("Hello Jürgen"))
-            .when()
-                .get("/dataView/hello");
-    }
-
 }

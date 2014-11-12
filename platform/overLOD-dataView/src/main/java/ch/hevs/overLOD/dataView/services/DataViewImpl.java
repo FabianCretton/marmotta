@@ -18,6 +18,7 @@
 package ch.hevs.overLOD.dataView.services;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -27,6 +28,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.TreeMap;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.marmotta.client.ClientConfiguration;
 import org.apache.marmotta.platform.core.api.config.ConfigurationService;
 import org.slf4j.Logger;
@@ -41,7 +43,7 @@ import ch.hevs.overLOD.dataView.api.DataView;
 import ch.hevs.overLOD.dataView.exceptions.DataViewException;
 
 /**
- * Default Implementation of {@link DataView}
+ * Default Implementation of DataView
  */
 @ApplicationScoped
 public class DataViewImpl implements DataView {
@@ -74,7 +76,7 @@ public class DataViewImpl implements DataView {
     }
 
     /**
-     * Return the TrackingID from parameter if "dataView.GoogleAnalytics" is true
+     * if "dataView.GoogleAnalytics" is true, return the TrackingID from parameter "dataView.GoogleAnalyticsTrackingID",
      * otherwise null
      */
     @Override
@@ -89,7 +91,7 @@ public class DataViewImpl implements DataView {
     @Override
     public ArrayList<String> getDataViewsList() throws DataViewException
     {
-    	ArrayList dataViewsList = new ArrayList<String>() ;
+    	ArrayList<String> dataViewsList = new ArrayList<String>() ;
 
         String fileName;
         
@@ -169,6 +171,35 @@ public class DataViewImpl implements DataView {
         return "DataView '" + viewName + "' saved successfully!";
     }
     
+    /**
+     * Read the SPARQL query corresponding to a viewName and return the string
+     */
+	@Override
+    public String readDataViewQuery(String viewName) throws IOException
+    {
+    String query = null ;
+    String queryFile = configurationService.getHome() + File.separator + "dataViews" + File.separator + viewName + ".sparql" ;
+
+    // Read the .sparql file
+    FileInputStream inputStream = null;
+    
+		try {
+			inputStream = new FileInputStream(queryFile);
+			query = IOUtils.toString(inputStream);
+		} catch (IOException e) {
+			log.error("DataView - accessing " + queryFile + " exception:" + e.getMessage());
+			throw(e) ;
+		} finally {
+			try {
+				if (inputStream != null)
+					inputStream.close();
+			} catch (IOException e) {
+				log.error("DataView - closing " + queryFile + " exception:" + e.getMessage());
+			}
+		}
+		
+		return query ;
+    }    
     /**
      * Delete a DataView
      */

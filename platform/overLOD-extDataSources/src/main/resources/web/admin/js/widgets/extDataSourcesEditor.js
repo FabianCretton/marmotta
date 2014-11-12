@@ -184,18 +184,21 @@ function EDSEditor(id,listEditor,host) {
                     alert("URL must be an url!"); return;
                 }
 
-								// Save the parameters and upload the file
-								loader.show() ;
-								
-								if (EDS_Type == "RDFFile")
-									{
-									var mimeTypeValue = source_filetype_input.val() ;
-									extDataSourcesClient.addRDFFileURLandImport(EDS_Type, urlValue, mimeTypeValue, context, importEDSSuccess,  importFail) ;
-									}
-								else // LinkedData
-									{
-									extDataSourcesClient.addRDFFileURLandImport(EDS_Type, urlValue, "application/rdf+xml", context, importEDSSuccess,  importFail) ;
-									}
+				// Save the parameters and upload the file
+				loader.show() ;
+				
+				var filterFileName = "geoNames_about_rdf_testFilter.sparql" ; // "threeTriples_testFilter.sparql" 
+				var validationFileName = "geoNames_test_constraints.spin.ttl" ; // "foaf_dummy_constraints.spin.ttl" ;
+				
+				if (EDS_Type == "RDFFile")
+					{
+					var mimeTypeValue = source_filetype_input.val() ;
+					extDataSourcesClient.addEDS(EDS_Type, urlValue, mimeTypeValue, context, filterFileName, validationFileName, importEDSSuccess,  importFail) ;
+					}
+				else // LinkedData
+					{
+					extDataSourcesClient.addEDS(EDS_Type, urlValue, "application/rdf+xml", context, filterFileName, validationFileName, importEDSSuccess,  importFail) ;
+					}
             });
             button.append(bSaveParams);
 

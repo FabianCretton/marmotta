@@ -3,6 +3,7 @@
  * Based on JQuery 1.8
  * This version is based on CORS to do cross-domain calls with http authentication
  * The user/pwd are set in the 'credentials' variable, in the form "user:pwd"
+ *
  * Author: Fabian Cretton - OverLOD Project - HES-SO Valais
  * @param url The basic URL where Marmotta runs
  */

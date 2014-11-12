@@ -17,6 +17,7 @@
  */
 package ch.hevs.overLOD.dataView.api;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.TreeMap;
 
@@ -31,4 +32,6 @@ public interface DataView {
     public String deleteDataView(String viewName)  throws DataViewException ;
     
     public String getGoogleAnalyticsTrackingID() ;
+    
+    public String readDataViewQuery(String viewName) throws IOException ;
 }

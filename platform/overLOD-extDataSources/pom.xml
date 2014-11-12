@@ -48,6 +48,8 @@
                     <source>1.7</source>
                     <target>1.7</target>
                     <encoding>utf-8</encoding>
+                   	<!-- <compilerArgument>-Xlint:unchecked</compilerArgument> -->
+ 					<!-- -Xlint:deprecation  -->                   	
                 </configuration>
             </plugin>
             <plugin>
@@ -155,6 +157,20 @@
 		    <artifactId>ldclient-provider-rdf</artifactId>
 		    <version>${project.version}</version>
 		</dependency>
+        <!-- SPIN --> 
+	    <dependency>
+	    	<groupId>org.topbraid</groupId>
+	    	<artifactId>spin</artifactId>
+	    	<version>1.4.0</version>
+	    	<exclusions>
+	    	<!-- Exclude log4j as it will cause a conflict (exception) with Marmotta's logger -->
+	    		<exclusion>
+	    			<artifactId>slf4j-log4j12</artifactId>
+	    			<groupId>org.slf4j</groupId>
+	    		</exclusion>
+	    	</exclusions>
+	    </dependency>
+	    		
         <!-- Front-end -->
         <dependency>
             <groupId>org.webjars</groupId>
@@ -244,5 +260,11 @@
         </dependency>
 
     </dependencies>
-
+   <!--  SPIN -->
+<repositories>
+    <repository>
+        <id>org.topbraid</id>
+        <url>http://topquadrant.com/repository/spin</url>
+    </repository>
+</repositories>  
 </project>

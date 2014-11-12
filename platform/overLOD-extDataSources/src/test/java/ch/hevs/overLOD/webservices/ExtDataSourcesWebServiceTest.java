@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.containsString;
 
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
+import javax.ws.rs.core.Response.Status;
 
 import ch.hevs.overLOD.extDataSources.webservices.ExtDataSourcesWebService;
 
@@ -85,7 +86,7 @@ public class ExtDataSourcesWebServiceTest {
         expect().
         	statusCode(502).
         when().
-        	post("/EDS/EDSParams?url=http://foo.rdf");
+        	post("/EDS/EDSParams?context=http://foo.rdf&url=http://foo.rdf&EDSType=RDFFile");
         
     }
     
@@ -97,7 +98,7 @@ public class ExtDataSourcesWebServiceTest {
         expect().
         	statusCode(500).
         when().
-        	delete("/EDS/EDSParams?graph=http://foo.rdf&deleteGraph=false");
+        	delete("/EDS/EDSParams?context=http://foo.rdf&deleteGraph=false");
         
     }    
 }

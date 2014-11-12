@@ -15,9 +15,9 @@ function EDSList(id,host) {
 
 		// var EDSParamsWS = host + "EDS/EDSParams" ;
 		
-    var style = $("<style type='text/css'>.td_title{font-weight:bold;width:100px}</style>")
+    // var style = $("<style type='text/css'>.td_title{font-weight:bold;width:100px}</style>")
 
-		this.buildList = function(){
+	this.buildList = function(){
 			this.loader.show() ;
 
 			container.empty() ;
@@ -34,7 +34,7 @@ function EDSList(id,host) {
 			titleRow.append("<th>&nbsp;</th>");
 			titleRow.append("<th>&nbsp;</th>");
 			listTable.append(titleRow) ;
-      container.append(listTable);
+			container.append(listTable);
 		
 			// add one line in the table of EDS
 			function appendEDS(context, EDSParams) {
@@ -58,7 +58,7 @@ function EDSList(id,host) {
 			
 			function 	errorList(jqXhr, textStatus, error)		
 			{
-				alert("ERROR getting External Data Sources list (" + jqXhr.statusText + ": " + jqXhr.responseText);
+				alert("ERROR getting External Data Sources list (" + jqXhr.statusText + ": " + jqXhr.responseText +")");
 			}
 			
 			extDataSourcesClient.getEDSParamsList(successDisplayList, errorList) ;

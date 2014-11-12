@@ -1,6 +1,9 @@
 /**
  * Creates a DataView object to access the Web Service
  * Based on JQuery 1.8
+ * This version don't handle http authentication and can be used only if the Marmotta's web services are configured to be accessible without authentication
+ * If authentication is necessary, use dataViewClient_CORS.js 
+ *
  * Author: Fabian Cretton - OverLOD Project - HES-SO Valais
  * @param url The basic URL where Marmotta runs
  */

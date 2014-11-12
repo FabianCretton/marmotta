@@ -1,7 +1,7 @@
 <!--
 Web interface to manage Data Views
 
-Author: Fabian Cretton - OverLOD Project - HES-SO Valais
+Author: Fabian Cretton/Liu Zhan - OverLOD Project - HES-SO Valais
  
 -->
 <html>
@@ -9,145 +9,323 @@ Author: Fabian Cretton - OverLOD Project - HES-SO Valais
 <!--###BEGIN_HEAD###-->
     <title>Data Views</title>
     <script type="text/javascript" src="../../webjars/jquery/1.8.2/jquery.min.js"></script>
-    <script type="text/javascript" src="../../webjars/marmotta.js"></script>
+    <!-- <script type="text/javascript" src="../../webjars/marmotta.js"></script> -->
     <script type="text/javascript" src="js/widgets/dataViewList.js"></script>
     <script type="text/javascript" src="js/widgets/dataViewClient.js"></script>
+		
+		
+	<script type="text/javascript">
+        SQUEBI = {
+            selectService : _SERVER_URL + "sparql/select", // "../select",
+            // updateService : _SERVER_URL+"sparql/update", // "../update",
+            app : "../../webjars/squebi/0.0.9",
+            bower : ".",
+            hints : [],
+            container : '#squebi_container',
+            browse : {
+                showFlags : false
+            }
+			/*,
+            "samples": [
+                {"name":"Select first 10 triples", "value":"SELECT * WHERE {\n  ?subject ?property ?object\n} LIMIT 10","type":"browse"},
+                {"name":"List types", "value":"SELECT DISTINCT ?type WHERE {\n  [] a ?type\n} ORDER BY ?type","type":"browse"},
+                {"name":"List properties", "value":"SELECT DISTINCT ?property WHERE {\n  [] ?property []\n} ORDER BY ?property","type":"browse"},
+                {"name":"List classes and count their usage as pie chart", "value":"SELECT ?class (COUNT (?s) AS ?count) WHERE {\n  ?s a ?class\n}\nGROUP BY ?class\nORDER BY DESC(?count)","type":"piechart"},
+            ]
+			*/
+			,
+            "writers": [
+                "browse","csv","json","pie","xml"
+            ],
+			automaticQuery  : false, // If squebi automatically sends the current query after the page is loaded.
+			updateAllowed : false,
+			
+        };
+    </script>
+    <script data-main="../../webjars/squebi/0.0.9/main" src="../../webjars/squebi/0.0.9/requirejs/require.js"></script>
+		
+		
     <script type="text/javascript">
+			
+			var dataViewName;
+			var dataView = new DataView(_SERVER_URL) ;
+			var listEditor = null ; // object that would be needed for a "refresh list" button, see EDS as an example
+			var newDataView = false ; // will store if we edit a new query, or update an existing one
+			
+			/*
+			* Display a query for edition
+			*/
 			function showViewDetails(viewName)
 			{
+				dataViewName = viewName;
+				newDataView = false ;
+				
+				disableEditButtons(false) ;
 				// Display the view name
-				$("#dataViewName").html("Data view name: " + viewName);
+				$("#dataViewNameDisplay").html("Data view name:&nbsp;" + viewName);
 
 				// Display the view's query 
 				$.get("../query?viewName=" + viewName, function(data) {
-						$("#dataViewQuery").html("Data view query:<BR>" + data);
+						document.getElementById('textQuery').value = data;
+						// pass the query to SQUEBI
+						//window.location.hash = "#?query="+ data + "&writer=browse";
+						window.location.hash = "#?writer=browse&query="+ encodeURIComponent(data) ;
 				}).error(function(jqXhr, textStatus, error) {
 						// textStatus just contains 'error'
 						alert("ERROR getting Data Views query (" + jqXhr.statusText + ": " + jqXhr.responseText + ")");
 						$("#dataViewQuery").html("Data view query:<BR>ERROR getting Data Views query (" + jqXhr.statusText + ": " + jqXhr.responseText + ")");
 				});		
-				
 			}
-		
-				var listEditor = null ; // object that would be needed for a "refresh list" button, see EDS as an example
-        $(document).ready(function(){
-						listEditor = new DVList("DataViews_div",_SERVER_URL);
-						
-						displayDVCallExamples("DataViewCalls_div",_SERVER_URL) ;
-        })
-				
-				function displayDVCallExamples(id,host)
-				{
-				var loader =$("<img style='position: relative;top: 4px;margin-left: 10px;' src='../public/img/loader/ajax-loader_small.gif'>");
-				
-				var container = $("#"+id);
-				
-				// for debugging WS
-				var dataViewClient = new DataView(host) ;
-				
-				container.append($("<h2></h2>").append("Data View - calls examples").append(loader));
-				
-				//container.append($("<p></p>").append("JSON")) ;
-
-				container.append($("<a class='data_view_text_link'></a>").text("Test WS - getDataView call JSON: allTriplesLimit10").click(function(){
-					dataViewClient.getDataView('allTriplesLimit10', null, "application/sparql-results+json", successJSON, failure) ;
-				 }));
-
-				//container.append($("<p></p>").append("SPARQL-XML")) ;
-
-				container.append($("<BR><a class='data_view_text_link'></a>").text("Test WS - getDataView call XML: allTriplesLimit10").click(function(){
-					dataViewClient.getDataView('allTriplesLimit10', null, "application/sparql-results+xml", successXML, failure) ;
-				 }));
-
-				//container.append($("<p></p>").append("SPARQL-CSV")) ;
-
-				container.append($("<BR><a class='data_view_text_link'></a>").text("Test WS - getDataView call CSV: allTriplesLimit10").click(function(){
-					dataViewClient.getDataView('allTriplesLimit10', null,"text/csv", success, failure) ;
-				 }));
-
- 				//container.append($("<p></p>").append("SPARQL with parameters")) ;
-
-				container.append($("<BR><a class='data_view_text_link'></a>").text("Test WS - getDataView with parameters: UC_allValuesOneAreaOneYear_params(Ayent - 2002)").click(function(){
-						var queryParams = {p_areaURI:encodeURIComponent("http://dbpedia.org/resource/Ayent"), p_year:"2002"};
-
-						dataViewClient.getDataView('UC_allValuesOneAreaOneYear_params', queryParams,"text/csv", success, failure) ;
-				 }));
-
- 				//container.append($("<p></p>").append("Create new Data View")) ;
-
-				container.append($("<BR><a class='data_view_text_link'></a>").text("Test WS - New data view LIMIT 2").click(function(){
-					dataViewClient.addDataView('newTest', 'SELECT * WHERE {?s ?p ?o} LIMIT 2', success, failure) ;
-				 }));
-
- 				//container.append($("<p></p>").append("Update 'newTest' Data View")) ;
-
-				container.append($("<BR><a class='data_view_text_link'></a>").text("Test WS - Update 'newTest' Data View LIMIT 3").click(function(){
-					dataViewClient.updateDataView('newTest', 'SELECT * WHERE {?s ?p ?o} LIMIT 3', success, failure) ;
-				 }));
-
- 				container.append($("<BR><a class='data_view_text_link'></a>").text("Test WS - Delete 'newTest' Data View").click(function(){
-					dataViewClient.deleteDataView('newTest', success, failure) ;
-				 }));
-
-				 loader.hide() ;
-
-				function success(result)
-				{
-				alert('success: ' + result) ;
-				document.getElementById("queryResult").innerHTML= result; 
-				}
-
-				// ici reçu en text
-				function successXML(resultXML)
-				{
-				document.getElementById("queryResult").innerHTML= resultXML ; 
-				}
 			
-				// ici l'objet JSON reçu en text
-				function successJSON(resultJSON)
-				{
-				// alert('success:' + resultJSON) ;
+			function disableEditButtons(disabled)
+			{
+				document.getElementById('saveButton').disabled = disabled;
+				document.getElementById('runButton').disabled = disabled;
+				document.getElementById('getSQUEBIButton').disabled = disabled;
+			}
 			
-				// Getting directly the results bindings:
-				var resParsed = JSON.parse(resultJSON).results.bindings ;
+			/*
+			* empty the dataview edition
+			*/
+			function displayNoDataView()
+			{
+				$("#dataViewNameDisplay").html("Data view name: -");
+				document.getElementById('textQuery').value = "" ;
+				disableEditButtons(true) ;
+				newDataView = true ; 
+			}
+			
+			function deleteDataView(viewName)
+			{
+				if (!confirm('Are you sure you want to delete the following DataView: ' + viewName)) {
+					return ;
+				}				
+			
+				listEditor.loader.show() ;
+				
+				dataView.deleteDataView(viewName, successDeleteDV, failureDeleteDV) ;		
+			}
+			
+			function successDeleteDV(result)
+			{
+				alert(result) ;
+				listEditor.buildList() ; // refresh the list of data views
+				listEditor.loader.hide() ;
+				displayNoDataView() ; // remove the current edition, in case it was the deleted data view
+			}
+			
+			function failureDeleteDV(jqXhr)
+			{
+					alert("ERROR deleting DataView (" + jqXhr.statusText + ": " + jqXhr.responseText + ")");
+					listEditor.loader.hide() ;
+			}			
+			
+			function addNew(){
+				$("#dataViewNameDisplay").html("Data view name:&nbsp;<input id='titleQuery' type='text' name='titleQuery'>");
+				document.getElementById('textQuery').value = "";
+				disableEditButtons(false) ;
+				newDataView = true ;
+			}
+			
+			function getUrlParameters(parameter, staticURL, decode){
+				 var currLocation = (staticURL.length)? staticURL : window.location.search,
+						 parArr = currLocation.split("?")[1].split("&"),
+						 returnBool = true;
+				 
+				 for(var i = 0; i < parArr.length; i++){
+							parr = parArr[i].split("=");
+							if(parr[0] == parameter){
+									return (decode) ? decodeURIComponent(parr[1]) : parr[1];
+									returnBool = true;
+							}else{
+									returnBool = false;            
+							}
+				 }
+				 
+				 if(!returnBool) return false;  
+			}
 
-				document.getElementById("queryResult").innerHTML= JSON.stringify(resParsed, null); 
+			/*
+			* Run the current query in SQUEBY, by setting it in the query parameter
+			*/
+			function runQuery()
+			{
+				window.location.hash = "#?writer=browse&query="+ encodeURIComponent(document.getElementById('textQuery').value) ;
+			}
+			
+			/* 
+			* Get the last query run in SQUEBI, i.e. the query set in the "query" parameter
+			* Both code should work:
+			* - getUrlParameters("query", document.URL, true)
+			* - $(".CodeMirror-code pre").text()
+			* But currently SQUEBI 0.0.9 does have a display problem: the query is displayed twice
+			* so we use the other method
+			*/
+			function getSQUEBIQuery()
+			{
+				//var queryParameter = getUrlParameters("query", document.URL, true);
+				//alert(queryParameter);
+				
+				//Get the query in the URL
+				//var query = $(".CodeMirror-code pre").text();
+				document.getElementById('textQuery').value = getUrlParameters("query", document.URL, true); // $(".CodeMirror-code pre").text();
+				// document.getElementById('textQuery').value = $(".CodeMirror-code pre").text();
+			}
+			
+			function saveQuery()
+				{
+				var queryText = document.getElementById('textQuery').value;
+				if (newDataView) 
+				{
+					dataViewName = document.getElementById('titleQuery').value;
+					
+					if(dataViewName == "")
+					{
+						alert('Please enter a name for the new data view!') ;
+						return ;
+					}
 				}
 				
-				function failure(jqXhr)
+				if(queryText == "")
 				{
-				//alert('error (' + serverError.name + '): ' + serverError.message) ;
-					alert("Server call ERROR (" + jqXhr.statusText + ": " + jqXhr.responseText + ")");
+					alert('Please enter the SPARQL query!') ;
+					return ;
+				}
+				
+				listEditor.loader.show() ;
+				
+				if(newDataView){ //Add new DataView
+					dataView.addDataView(dataViewName, queryText, successAddDV, failureAddDV) ;		
+				}else{//Edit a DataView
+					dataView.updateDataView(dataViewName, queryText, successUpdateDV, failureUpdateDV) ;
 				}
 			}
+			
+			function successAddDV(result)
+				{
+				listEditor.buildList() ; // refresh the list of data views
+				listEditor.loader.hide() ;
+				// remove the text box to edit the name: name is read-only now
+				newDataView = false ; // the next save will be an update
+				$("#dataViewNameDisplay").html("Data view name:&nbsp;" + dataViewName);
+				}
+				
+			function failureAddDV(jqXhr)
+				{
+				alert("ERROR adding the DataView (" + jqXhr.statusText + ": " + jqXhr.responseText + ")");
+				listEditor.loader.hide() ;
+				}
+
+			function successUpdateDV(result)
+				{
+				alert('The DataView was updated: ' + result) ;
+				listEditor.loader.hide() ;
+				}
+				
+			function failureUpdateDV(jqXhr)
+				{
+				alert("ERROR updating the DataView (" + jqXhr.statusText + ": " + jqXhr.responseText + ")");
+				listEditor.loader.hide() ;
+				}
+				
+			$(document).ready(function(){
+				listEditor = new DVList("DataViews_div", _SERVER_URL);
+			})
 				</script>
 				<style>
-						.data_view_text_link {
-								padding: 2px;
-								cursor: pointer;
-						}
-						.importer_table {
-								background-color: #eeeeee;
-								padding: 10px;
-								border: 1px solid gray;
-								-webkit-border-radius: 3px;
-								border-radius: 3px;
-						}				 
+				.titleText{
+				font-weight:bold;
 				}
-
+				.noSquebiStyle {
+				font-style:normal;
+				font-weight:normal;
+				font-family: Arial,Helvetica,FreeSans,sans-serif;
+				color:black ;
+				cursor:default;
+				}
     </style>
 <!--###END_HEAD###-->
 </head>
 <body>
 <!--###BEGIN_CONTENT###-->
+<!-- FC: if no CSS is set for the elements, the page looks strange as the SQUEBI CSS is applied
+therefore I did create a .noSquebiStyle that I use for each element -->
 <h1>Data views</h1>
 	<div id="DataViews_div"></div>
-	<h2>Data view details</h2>
-  <div id="dataViewName">Data view name:</div>  
-  <div id="dataViewQuery">Data view query:</div>  
-	<div id="DataViewCalls_div"></div>
-  <p>Query result:</p>  
-  <div id="queryResult"></div> 
+	<button id ="newView" class="noSquebiStyle" onclick="addNew();">Add new data view</button> 
+	<h2>Edit data view 1</h2>
+  <div id="dataViewNameDisplay" class="noSquebiStyle">Data view name:</div>  
+  <div id="dataViewQuery" class="noSquebiStyle">Data view query: </div>  
+	
+	<textarea rows="8" cols="100" id="textQuery" class="noSquebiStyle"></textarea> 
+	</br></br>
+	<button id ="saveButton"  class="noSquebiStyle" onclick="saveQuery();" disabled>Save</button> 
+	<button id ="runButton" class="noSquebiStyle" onclick="runQuery();" disabled>Run in SQUEBI</button> 
+	<button id ="getSQUEBIButton" class="noSquebiStyle" onclick="getSQUEBIQuery();" disabled>Get query from SQUEBI</button> 
+	<h2>SQUEBI Editor</h2>
+	
+<div id="appLoader" style="margin-top: 100px; text-align: center; margin-bottom: 100px">
+    <img src="../../webjars/squebi/0.0.9/squebi/img/ajax-loader-big.gif">
+</div>
+<div style="display: none" id="squebi_container" class="container">
+    <div ng-controller="SampleCtrl" class="header">
+        <div ng-show="showHint">
+            <div ng-click="showHint = false" class="hint-overlay"></div>
+            <div class="hint" style="{{h.style}}" ng-repeat="h in hints" ng-bind-html="h.trusted_content"></div>
+        </div>
+		<!-- Zhan: hide the sample menu 
+        <ul class="nav nav-pills pull-right">
+            <li class="menuitem"><a ng-show="hint" ng-click="showHints()">Hints</a></li>
+            <li id="samples" class="menuitem dropdown">
+                <a class="dropdown-toggle">
+                    Samples
+                </a>
+                <ul class="dropdown-menu pull-right">
+                    <li ng-repeat="sample in samples">
+                        <a ng-click="selectSample(sample)">{{sample.name}}</a>
+                    </li>
+                </ul>
+            </li>
+			-->
+            <!--<li><a href="http://github.com/tkurz/sparql-mm" target="_blank">Repository</a></li>
+            <li><a href="mailto:thomas.kurz@salzburgresearch.at">Contact</a></li>-->
+         <!-- </ul> -->
+    </div>
+
+    <div style="margin-top:50px;position: relative;" ng-controller="QueryCtrl" class="jumbotron">
+        <div id="query-container">
+            <textarea id="input" ng-model="query" ui-codemirror="editorOptions"></textarea>
+        </div>
+        <a class="btn btn-lg btn-success btn-query" ng-click="triggerQuery()">
+            <i class="fa fa-play-circle"></i> Run
+        </a>
+    </div>
+
+    <div ng-controller="AlertCtrl">
+        <div class="alert ng-isolate-scope alert-success" ng-class="'alert-' + (alert.type || 'warning')" ng-repeat="alert in alerts">
+            <button type="button" class="close" ng-click="remove(alert)">x</button>
+            <div>
+                <h2 ng-show="alert.title">{{alert.title}}</h2>
+                <span>{{alert.msg}}</span>
+            </div>
+        </div>
+    </div>
+    <div ng-show="showResults" ng-controller="FormatCtrl">
+        <ul id="writers" class="nav nav-tabs">
+            <li ng-repeat="writer in writers" ng-class="getClass(writer)">
+                <a title="{{writer.description}}" ng-click="selectWriter($event,writer)" href="#">{{writer.label}}</a>
+            </li>
+        </ul>
+    </div>
+    <div ng-show="showResults" ng-controller="ResultCtrl" class="row result">
+        <div ng-show="!loader" ng-include src="template"></div>
+        <div class="loader" ng-show="loader">
+            <img src="../../webjars/squebi/0.0.9/squebi/img/ajax-loader.gif">
+        </div>
+    </div>
+
+</div>
 <!--###END_CONTENT###-->
+
 </body>
 </html>
