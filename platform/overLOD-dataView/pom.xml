@@ -119,11 +119,11 @@
             <artifactId>marmotta-client-java</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <!--  for Squerbi -->
+        <!--  for Squebi -->
         <dependency>
             <groupId>com.github.tkurz.webjars</groupId>
             <artifactId>squebi</artifactId>
-            <version>0.0.10-SNAPSHOT</version>
+            <version>1.0.1</version>
         </dependency>
 		<dependency>
             <groupId>org.webjars</groupId>
