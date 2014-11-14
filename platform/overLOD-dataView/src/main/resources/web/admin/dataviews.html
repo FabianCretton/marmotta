@@ -16,85 +16,60 @@ Author: Fabian Cretton/Liu Zhan - OverLOD Project - HES-SO Valais
 		
 	<script type="text/javascript">
         SQUEBI = {
-            selectService : _SERVER_URL + "sparql/select", // "../select",
-            // updateService : _SERVER_URL+"sparql/update", // "../update",
-            app : "../../webjars/squebi/0.0.9",
-            bower : ".",
+            selectService : _SERVER_URL + "sparql/select",
+            //updateService : _SERVER_URL + "sparql//update",
+            home : "../../webjars/squebi/0.0.10-SNAPSHOT",
             hints : [],
             container : '#squebi_container',
             browse : {
                 showFlags : false
-            }
-			/*,
+            },
+			/*
             "samples": [
-                {"name":"Select first 10 triples", "value":"SELECT * WHERE {\n  ?subject ?property ?object\n} LIMIT 10","type":"browse"},
+                {"name":"Select first 10 triples", "value":"SELECT * WHERE {\n  ?subject ?property ?object\n}\nLIMIT 10","type":"browse"},
                 {"name":"List types", "value":"SELECT DISTINCT ?type WHERE {\n  [] a ?type\n} ORDER BY ?type","type":"browse"},
-                {"name":"List properties", "value":"SELECT DISTINCT ?property WHERE {\n  [] ?property []\n} ORDER BY ?property","type":"browse"},
-                {"name":"List classes and count their usage as pie chart", "value":"SELECT ?class (COUNT (?s) AS ?count) WHERE {\n  ?s a ?class\n}\nGROUP BY ?class\nORDER BY DESC(?count)","type":"piechart"},
-            ]
-			*/
-			,
+                {"name":"List properties", "value":"SELECT DISTINCT ?property WHERE {\n  [] ?property []\n} ORDER BY ?property","type":"browse"}
+                //,{"name":"List classes and count their usage as pie chart", "value":"SELECT ?class (COUNT (?s) AS ?count) WHERE {\n  ?s a ?class\n}\nGROUP BY ?class\nORDER BY DESC(?count)","type":"piechart"},
+            ],*/
             "writers": [
                 "browse","csv","json","pie","xml"
             ],
 			automaticQuery  : false, // If squebi automatically sends the current query after the page is loaded.
 			updateAllowed : false,
-			
         };
+					
     </script>
-    <script data-main="../../webjars/squebi/0.0.9/main" src="../../webjars/squebi/0.0.9/requirejs/require.js"></script>
-		
+    <script data-main="../../webjars/squebi/0.0.10-SNAPSHOT/squebi" src="../../webjars/requirejs/2.1.15/require.js"></script>
+    <link href="../../webjars/squebi/0.0.10-SNAPSHOT/squebi.css" rel="stylesheet" type="text/css">
 		
     <script type="text/javascript">
 			
-			var dataViewName;
+			var editedDataViewName; // the name of the view currently edited, null if adding a new dataView
 			var dataView = new DataView(_SERVER_URL) ;
 			var listEditor = null ; // object that would be needed for a "refresh list" button, see EDS as an example
-			var newDataView = false ; // will store if we edit a new query, or update an existing one
+			var clearEditionAfterDelete = false ; // when deleting the currently edited query, clear the edition interface (see successDeleteDV())
 			
 			/*
 			* Display a query for edition
 			*/
 			function showViewDetails(viewName)
 			{
-				dataViewName = viewName;
-				newDataView = false ;
+				editedDataViewName = viewName;
 				
-				disableEditButtons(false) ;
 				// Display the view name
 				$("#dataViewNameDisplay").html("Data view name:&nbsp;" + viewName);
 
 				// Display the view's query 
 				$.get("../query?viewName=" + viewName, function(data) {
-						document.getElementById('textQuery').value = data;
-						// pass the query to SQUEBI
-						//window.location.hash = "#?query="+ data + "&writer=browse";
-						window.location.hash = "#?writer=browse&query="+ encodeURIComponent(data) ;
+					// pass the query to Squebi, through the page's query parameter
+					window.location.hash = "#?writer=browse&query="+ encodeURIComponent(data) ;
 				}).error(function(jqXhr, textStatus, error) {
 						// textStatus just contains 'error'
 						alert("ERROR getting Data Views query (" + jqXhr.statusText + ": " + jqXhr.responseText + ")");
 						$("#dataViewQuery").html("Data view query:<BR>ERROR getting Data Views query (" + jqXhr.statusText + ": " + jqXhr.responseText + ")");
 				});		
 			}
-			
-			function disableEditButtons(disabled)
-			{
-				document.getElementById('saveButton').disabled = disabled;
-				document.getElementById('runButton').disabled = disabled;
-				document.getElementById('getSQUEBIButton').disabled = disabled;
-			}
-			
-			/*
-			* empty the dataview edition
-			*/
-			function displayNoDataView()
-			{
-				$("#dataViewNameDisplay").html("Data view name: -");
-				document.getElementById('textQuery').value = "" ;
-				disableEditButtons(true) ;
-				newDataView = true ; 
-			}
-			
+
 			function deleteDataView(viewName)
 			{
 				if (!confirm('Are you sure you want to delete the following DataView: ' + viewName)) {
@@ -103,6 +78,8 @@ Author: Fabian Cretton/Liu Zhan - OverLOD Project - HES-SO Valais
 			
 				listEditor.loader.show() ;
 				
+				clearEditionAfterDelete = viewName == editedDataViewName ; // used by successDeleteDV() 
+					
 				dataView.deleteDataView(viewName, successDeleteDV, failureDeleteDV) ;		
 			}
 			
@@ -111,7 +88,12 @@ Author: Fabian Cretton/Liu Zhan - OverLOD Project - HES-SO Valais
 				alert(result) ;
 				listEditor.buildList() ; // refresh the list of data views
 				listEditor.loader.hide() ;
-				displayNoDataView() ; // remove the current edition, in case it was the deleted data view
+				
+				if (clearEditionAfterDelete)
+					{
+					addNew() ; // remove the current edition, in case it was the deleted data view
+					clearEditionAfterDelete = false ;
+					}
 			}
 			
 			function failureDeleteDV(jqXhr)
@@ -120,11 +102,11 @@ Author: Fabian Cretton/Liu Zhan - OverLOD Project - HES-SO Valais
 					listEditor.loader.hide() ;
 			}			
 			
+			// Prepare the edition of a new query, setting a default query in SQUEBI
 			function addNew(){
 				$("#dataViewNameDisplay").html("Data view name:&nbsp;<input id='titleQuery' type='text' name='titleQuery'>");
-				document.getElementById('textQuery').value = "";
-				disableEditButtons(false) ;
-				newDataView = true ;
+				window.location.hash = "#?writer=browse&query=SELECT * WHERE {%0A  %3Fs %3Fp %3Fo%0A} LIMIT 10" ;
+				editedDataViewName= null ;
 			}
 			
 			function getUrlParameters(parameter, staticURL, decode){
@@ -145,43 +127,19 @@ Author: Fabian Cretton/Liu Zhan - OverLOD Project - HES-SO Valais
 				 if(!returnBool) return false;  
 			}
 
-			/*
-			* Run the current query in SQUEBY, by setting it in the query parameter
-			*/
-			function runQuery()
-			{
-				window.location.hash = "#?writer=browse&query="+ encodeURIComponent(document.getElementById('textQuery').value) ;
-			}
-			
-			/* 
-			* Get the last query run in SQUEBI, i.e. the query set in the "query" parameter
-			* Both code should work:
-			* - getUrlParameters("query", document.URL, true)
-			* - $(".CodeMirror-code pre").text()
-			* But currently SQUEBI 0.0.9 does have a display problem: the query is displayed twice
-			* so we use the other method
-			*/
-			function getSQUEBIQuery()
-			{
-				//var queryParameter = getUrlParameters("query", document.URL, true);
-				//alert(queryParameter);
-				
-				//Get the query in the URL
-				//var query = $(".CodeMirror-code pre").text();
-				document.getElementById('textQuery').value = getUrlParameters("query", document.URL, true); // $(".CodeMirror-code pre").text();
-				// document.getElementById('textQuery').value = $(".CodeMirror-code pre").text();
-			}
-			
 			function saveQuery()
 				{
-				var queryText = document.getElementById('textQuery').value;
+				var queryText = SQUEBI.getApp().getQuery() ;
+				var newDataView = editedDataViewName == null ;
+				
 				if (newDataView) 
 				{
-					dataViewName = document.getElementById('titleQuery').value;
+					editedDataViewName = document.getElementById('titleQuery').value;
 					
-					if(dataViewName == "")
+					if(editedDataViewName == "")
 					{
 						alert('Please enter a name for the new data view!') ;
+						editedDataViewName= null ;
 						return ;
 					}
 				}
@@ -195,9 +153,9 @@ Author: Fabian Cretton/Liu Zhan - OverLOD Project - HES-SO Valais
 				listEditor.loader.show() ;
 				
 				if(newDataView){ //Add new DataView
-					dataView.addDataView(dataViewName, queryText, successAddDV, failureAddDV) ;		
+					dataView.addDataView(editedDataViewName, queryText, successAddDV, failureAddDV) ;		
 				}else{//Edit a DataView
-					dataView.updateDataView(dataViewName, queryText, successUpdateDV, failureUpdateDV) ;
+					dataView.updateDataView(editedDataViewName, queryText, successUpdateDV, failureUpdateDV) ;
 				}
 			}
 			
@@ -206,8 +164,7 @@ Author: Fabian Cretton/Liu Zhan - OverLOD Project - HES-SO Valais
 				listEditor.buildList() ; // refresh the list of data views
 				listEditor.loader.hide() ;
 				// remove the text box to edit the name: name is read-only now
-				newDataView = false ; // the next save will be an update
-				$("#dataViewNameDisplay").html("Data view name:&nbsp;" + dataViewName);
+				$("#dataViewNameDisplay").html("Data view name:&nbsp;" + editedDataViewName);
 				}
 				
 			function failureAddDV(jqXhr)
@@ -230,6 +187,7 @@ Author: Fabian Cretton/Liu Zhan - OverLOD Project - HES-SO Valais
 				
 			$(document).ready(function(){
 				listEditor = new DVList("DataViews_div", _SERVER_URL);
+				addNew(); // prepare the edition for a new DV
 			})
 				</script>
 				<style>
@@ -253,19 +211,10 @@ therefore I did create a .noSquebiStyle that I use for each element -->
 <h1>Data views</h1>
 	<div id="DataViews_div"></div>
 	<button id ="newView" class="noSquebiStyle" onclick="addNew();">Add new data view</button> 
-	<h2>Edit data view 1</h2>
+	<h2>Data view edition</h2>
   <div id="dataViewNameDisplay" class="noSquebiStyle">Data view name:</div>  
-  <div id="dataViewQuery" class="noSquebiStyle">Data view query: </div>  
-	
-	<textarea rows="8" cols="100" id="textQuery" class="noSquebiStyle"></textarea> 
-	</br></br>
-	<button id ="saveButton"  class="noSquebiStyle" onclick="saveQuery();" disabled>Save</button> 
-	<button id ="runButton" class="noSquebiStyle" onclick="runQuery();" disabled>Run in SQUEBI</button> 
-	<button id ="getSQUEBIButton" class="noSquebiStyle" onclick="getSQUEBIQuery();" disabled>Get query from SQUEBI</button> 
-	<h2>SQUEBI Editor</h2>
-	
 <div id="appLoader" style="margin-top: 100px; text-align: center; margin-bottom: 100px">
-    <img src="../../webjars/squebi/0.0.9/squebi/img/ajax-loader-big.gif">
+    <img src="../../webjars/squebi/0.0.10-SNAPSHOT/img/ajax-loader-big.gif">
 </div>
 <div style="display: none" id="squebi_container" class="container">
     <div ng-controller="SampleCtrl" class="header">
@@ -273,7 +222,7 @@ therefore I did create a .noSquebiStyle that I use for each element -->
             <div ng-click="showHint = false" class="hint-overlay"></div>
             <div class="hint" style="{{h.style}}" ng-repeat="h in hints" ng-bind-html="h.trusted_content"></div>
         </div>
-		<!-- Zhan: hide the sample menu 
+		<!-- Zhan: hide the sample and hints menu 
         <ul class="nav nav-pills pull-right">
             <li class="menuitem"><a ng-show="hint" ng-click="showHints()">Hints</a></li>
             <li id="samples" class="menuitem dropdown">
@@ -289,16 +238,17 @@ therefore I did create a .noSquebiStyle that I use for each element -->
 			-->
             <!--<li><a href="http://github.com/tkurz/sparql-mm" target="_blank">Repository</a></li>
             <li><a href="mailto:thomas.kurz@salzburgresearch.at">Contact</a></li>-->
-         <!-- </ul> -->
+        </ul>
     </div>
 
     <div style="margin-top:50px;position: relative;" ng-controller="QueryCtrl" class="jumbotron">
         <div id="query-container">
             <textarea id="input" ng-model="query" ui-codemirror="editorOptions"></textarea>
         </div>
-        <a class="btn btn-lg btn-success btn-query" ng-click="triggerQuery()">
-            <i class="fa fa-play-circle"></i> Run
-        </a>
+        <a class="btn btn-run btn-lg btn-success btn-query" ng-click="triggerQuery()">
+            <i class="fa fa-play-circle"></i>Run</a>
+        <a class="btn btn-run btn-lg btn-success btn-query" onclick="saveQuery()">
+            <i class="fa fa-play-circle"></i>Save</a>
     </div>
 
     <div ng-controller="AlertCtrl">
@@ -320,7 +270,7 @@ therefore I did create a .noSquebiStyle that I use for each element -->
     <div ng-show="showResults" ng-controller="ResultCtrl" class="row result">
         <div ng-show="!loader" ng-include src="template"></div>
         <div class="loader" ng-show="loader">
-            <img src="../../webjars/squebi/0.0.9/squebi/img/ajax-loader.gif">
+            <img src="../../webjars/squebi/0.0.10-SNAPSHOT/img/ajax-loader-big.gif">
         </div>
     </div>
 

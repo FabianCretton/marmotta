@@ -114,77 +114,7 @@ public class ExtDataSourcesWebService {
         return Response.ok().entity(mappings).build();
     }
     
-    /*
-     * The first implementation of adding an RDF file as EDS and launching the data load
-     * DEPRECATED as the import is now based on LDClient
-     * 
-     * Import a file from URL, by calling the 'import' web service
-     * That web service will start a thread to load the data asynchronously
-     * 
-     * headerAuth: http authentication
-     * 	When Marmotta is in a secure mode (restricted for instance), http authentication is used with user/pwd information
-     *		This information is then needed to call the other web service
-     * 		Setting the user/password inside the ClientConfiguration() seems of no use as those information
-     * 		are not handled by the HttpUtils methods, and anyway this information has to be set on the
-     * 		POST object, not on the HttpClient
-     * contentType: the mimetype of the data to be loaded
-     * url: the url of the data
-     * context: the context to which the data will be saved in the store
-     * return true if ok, otherwise throws an exception
-     * throws ExtDataSourcesException
-     */
-    private Boolean callImportWS4RDFFile(String headerAuth, String contentType, String url, String context) throws ExtDataSourcesException
-    {
-    	// create a client configuration with the current WS uri's
-        clientConfig = new ClientConfiguration(uri.getBaseUri().toString()) ;
-        
-        HttpClient httpClient = HTTPUtil.createClient(clientConfig);
 
-        String serviceUrl = null ;
-		try {
-			serviceUrl = clientConfig.getMarmottaUri() + URL_EXTERNAL_IMPORT_SERVICE
-					+ "?url=" + URLEncoder.encode(url, "utf-8")
-					+ "&context=" + URLEncoder.encode(context, "utf-8");
-		} catch (Exception e) {
-            log.error("could not encode URI parameter",e.getMessage());
-			throw new ExtDataSourcesException(e.getMessage());
-		}
-
-    	log.debug("callImportWS- server internal POST call to the import web service:" + serviceUrl);
-    	
-        HttpPost post = new HttpPost(serviceUrl);
-        post.setHeader("Content-Type", contentType);
-        
-        // if a credential is passed to this web service, pass it to the one we call
-        // otherwise the user will be asked for credential, and this call will fail
-        if (headerAuth != null && !headerAuth.equals("")) // null if marmotta is configured with no security option
-        	post.setHeader("Authorization", headerAuth);
-        
-        try {
-            HttpResponse response = httpClient.execute(post);
-            
-            switch(response.getStatusLine().getStatusCode()) {
-                case 200: 
-                    log.debug("import thread started");
-                    return true;
-                case 412: 
-                    log.error("mimetype not supported");
-        			throw new ExtDataSourcesException("mimetype not supported: " + response.getStatusLine().getReasonPhrase());
-                default:
-                    log.error("error importing:{}",response.getStatusLine().getReasonPhrase());
-        			throw new ExtDataSourcesException("error importing:: " + response.getStatusLine().getReasonPhrase());
-            }
-            
-        } catch (UnsupportedEncodingException e) {
-            log.error("Import Web Service Error - could not encode URI parameter",e.getMessage());
-			throw new ExtDataSourcesException("Import Web Service Error - could not encode URI parameter (" + e.getMessage() + ")");
-		} catch (Exception e) {
-            log.error("Import Web Service exception:",e.getMessage());
-			throw new ExtDataSourcesException("Import Web Service Error: " + e.getMessage());
-		} finally {
-            post.releaseConnection();
-        }    
-    }
     
     /**
      * Add a new External Data Source parameters
@@ -562,4 +492,115 @@ public class ExtDataSourcesWebService {
         
         return Response.ok().entity(updatedEDSList).build(); // "yes-done!", MediaType.TEXT_PLAIN)
     }
+    
+    /**
+     * Get the list of data filter files, files that allow to import only a part of an external data source
+     * @return Return a Array of string that is the list of the names of the existing filter files
+     */
+    @GET
+    @Path("/filters/list")
+    @Produces("application/json")
+    public Response getDataFiltersList() {
+        log.debug("GET getDataFiltersList");
+        
+        ArrayList<String> dataFiltersList ;
+		try {
+			dataFiltersList = (edsService != null ? edsService.getDataFiltersList() : new ArrayList<String>());
+		} catch (ExtDataSourcesException e) {
+			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error while retrieving Data Filters list: "+ e.getMessage()).build();
+		}
+
+        return Response.ok().entity(dataFiltersList).build();
+    } 
+    
+    /**
+     * Get the list of data validatores files, files that allow to check data according to constraints
+     * @return Return a Array of string that is the list of the names of the existing validators files
+     */
+    @GET
+    @Path("/validators/list")
+    @Produces("application/json")
+    public Response getDataValidatorsList() {
+        log.debug("GET getDataFiltersList");
+        
+        ArrayList<String> dataValidatorsList ;
+		try {
+			dataValidatorsList = (edsService != null ? edsService.getDataValidatorsList() : new ArrayList<String>());
+		} catch (ExtDataSourcesException e) {
+			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error while retrieving Data Validators list: "+ e.getMessage()).build();
+		}
+
+        return Response.ok().entity(dataValidatorsList).build();
+    }       
+    /*
+     * The first implementation of adding an RDF file as EDS and launching the data load
+     * DEPRECATED as the import is now based on LDClient
+     * 
+     * Import a file from URL, by calling the 'import' web service
+     * That web service will start a thread to load the data asynchronously
+     * 
+     * headerAuth: http authentication
+     * 	When Marmotta is in a secure mode (restricted for instance), http authentication is used with user/pwd information
+     *		This information is then needed to call the other web service
+     * 		Setting the user/password inside the ClientConfiguration() seems of no use as those information
+     * 		are not handled by the HttpUtils methods, and anyway this information has to be set on the
+     * 		POST object, not on the HttpClient
+     * contentType: the mimetype of the data to be loaded
+     * url: the url of the data
+     * context: the context to which the data will be saved in the store
+     * return true if ok, otherwise throws an exception
+     * throws ExtDataSourcesException
+     */
+    private Boolean callImportWS4RDFFile(String headerAuth, String contentType, String url, String context) throws ExtDataSourcesException
+    {
+    	// create a client configuration with the current WS uri's
+        clientConfig = new ClientConfiguration(uri.getBaseUri().toString()) ;
+        
+        HttpClient httpClient = HTTPUtil.createClient(clientConfig);
+
+        String serviceUrl = null ;
+		try {
+			serviceUrl = clientConfig.getMarmottaUri() + URL_EXTERNAL_IMPORT_SERVICE
+					+ "?url=" + URLEncoder.encode(url, "utf-8")
+					+ "&context=" + URLEncoder.encode(context, "utf-8");
+		} catch (Exception e) {
+            log.error("could not encode URI parameter",e.getMessage());
+			throw new ExtDataSourcesException(e.getMessage());
+		}
+
+    	log.debug("callImportWS- server internal POST call to the import web service:" + serviceUrl);
+    	
+        HttpPost post = new HttpPost(serviceUrl);
+        post.setHeader("Content-Type", contentType);
+        
+        // if a credential is passed to this web service, pass it to the one we call
+        // otherwise the user will be asked for credential, and this call will fail
+        if (headerAuth != null && !headerAuth.equals("")) // null if marmotta is configured with no security option
+        	post.setHeader("Authorization", headerAuth);
+        
+        try {
+            HttpResponse response = httpClient.execute(post);
+            
+            switch(response.getStatusLine().getStatusCode()) {
+                case 200: 
+                    log.debug("import thread started");
+                    return true;
+                case 412: 
+                    log.error("mimetype not supported");
+        			throw new ExtDataSourcesException("mimetype not supported: " + response.getStatusLine().getReasonPhrase());
+                default:
+                    log.error("error importing:{}",response.getStatusLine().getReasonPhrase());
+        			throw new ExtDataSourcesException("error importing:: " + response.getStatusLine().getReasonPhrase());
+            }
+            
+        } catch (UnsupportedEncodingException e) {
+            log.error("Import Web Service Error - could not encode URI parameter",e.getMessage());
+			throw new ExtDataSourcesException("Import Web Service Error - could not encode URI parameter (" + e.getMessage() + ")");
+		} catch (Exception e) {
+            log.error("Import Web Service exception:",e.getMessage());
+			throw new ExtDataSourcesException("Import Web Service Error: " + e.getMessage());
+		} finally {
+            post.releaseConnection();
+        }    
+    }    
 }

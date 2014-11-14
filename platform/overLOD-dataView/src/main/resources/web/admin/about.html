@@ -30,18 +30,14 @@
 <p>
     Data Views are predefined queries (SPARQL), designed by administrators, that will allow developers to request data in common formats (JSON, CSV, etc.) without the need to understand the underlying RDF format and ontologies.
 <p>
-	<span style="text-decoration: underline;"><b>About the current interface</b></span>
-	<BR>
-	The  <a href="dataviews.html">current interface</a>  to manage Data Views is not very convenient (but temporary): one text field contains the query that is effectively saved, whereas the SQUEBI interface allows testing queries. It was not possible to use the SQUEBI interface only, for technical reasons, but this should be improved in future versions.
-	<BR> 
-	Tip: quickly copy the queries between the text field and SQUEBI using the buttons "Run in SQUEBI" and "Get query from SQUEBI" (which retrieves the last query that was run)
-<p>
 	<span style="text-decoration: underline;"><b>Queries with parameters</b></span>
 	<BR>
 	A very basic mechanism has been chosen to allow a client to pass parameters to the underlying query when requesting a dataView :
 	<ul>
 	<li>When saving the dataView: after testing a query, replace a specific value by an identifying string starting with the "p_" prefix, for instance if you want to pass a 'year' value as parameter:
-	<br>replace <span style="font-family: consolas, arial;">?s onto:year 2010</span> by <span style="font-family: consolas, arial;">?s onto:year p_year</span></li>
+	<br>replace "<span style="font-family: consolas, arial;">?s onto:year 2010</span>" by "<span style="font-family: consolas, arial;">?s onto:year p_year</span>"
+	<br>This edited query can't be run, but can be saved.
+	</li>
 	<li>When calling the dataView web service: pass the value in the query string, using that identifying string as the parameter name.</li>
 	</ul>
 	HTTP call example: 

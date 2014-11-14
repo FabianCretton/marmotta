@@ -25,6 +25,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.StringWriter;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -96,8 +97,8 @@ import ch.hevs.overLOD.extDataSources.exceptions.ExtDataSourcesException;
  * Default Implementation of {@link ExtDataSources}
  * 
  * Handles the list of External Data Sources parameters (EDSParams) that is read
- * and written to a .json file in: configurationService.getHome() +
- * "/EDS/EDSParamsList.json"
+ * and written to a .json file in: 
+ * configurationService.getHome() + "/EDS/EDSParamsList.json"
  * 
  * @author Fabian Cretton, HES-SO OverLOD surfer project
  */
@@ -170,6 +171,32 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 		return cacheEDSParamsList.getList();
 	}
 
+	@Override
+    public ArrayList<String> getDataFiltersList() throws ExtDataSourcesException{
+		return getFolderFilesList(EDSFiltersFolder) ;
+	}
+	
+	@Override
+    public ArrayList<String> getDataValidatorsList() throws ExtDataSourcesException
+    {
+		return getFolderFilesList(spinConstraintsFolder) ;
+    }
+
+	public ArrayList<String> getFolderFilesList(String folderPath)
+	{
+    	ArrayList<String> filesList = new ArrayList<String>() ;
+
+        File folder = new File(folderPath);
+
+        File[] listOfFiles = folder.listFiles(); 
+       
+        for (int i = 0; i < listOfFiles.length; i++) 
+			 if (listOfFiles[i].isFile()) 
+				 filesList.add(listOfFiles[i].getName()) ;
+
+    	return filesList ;
+	}
+	
 	@Override
 	public String addEDSParams(String EDSType, String contentType, String url, String context, String timeStamp, String filterFileName, String validationFileName) throws ExtDataSourcesException {
 		log.debug("saving EDSParams EDSType:{}, contentType:{} url:{} context:{} timeStamp:{} filterFileName:{} validationFileName:{}", EDSType, contentType, url, context, timeStamp, filterFileName, validationFileName);
@@ -385,7 +412,7 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 				log.debug("Size of the filtered data: " + importedTriplesCount) ; 
 				
 				// Write the results to the writer
-				constructQuery.evaluate(rdfWriter);
+				constructQuery.evaluate(rdfWriter); // to the underlying stringWriter
 
 				/*
 				 * Running the query without a writer and looping on the results
@@ -415,9 +442,8 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 
 			// spin constraint validation on the filtered data
 			if (validationFileName != null) {
-				dataConstraintsValidation(is, FileUtils.langTurtle, validationFileName); 
-				// SPIN is based on Jena, so pass a
-				// Jena parameter (FileUtils) for the data format
+				dataConstraintsValidation(is, FileUtils.langTurtle, validationFileName); // SPIN is based on Jena, so pass a Jena parameter (FileUtils) for the data format
+				is.reset() ; // after reading the input stream, come back at the beginning (supported by ByteArrayInputStream)
 			} else
 				log.debug("Import with no constraint validation");
 

@@ -17,6 +17,7 @@
  */
 package ch.hevs.overLOD.extDataSources.api;
 
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -107,5 +108,8 @@ public interface ExtDataSources {
 	 * @return a string with a validation message
 	 */
 	public String importWithLDClient(String marmottaURL, String headerAuth, String LDClientType, String url, String context, String filterFileName, String validationFileName)  throws ExtDataSourcesException ;
-    
+ 
+    public ArrayList<String> getDataFiltersList() throws ExtDataSourcesException ;
+    public ArrayList<String> getDataValidatorsList() throws ExtDataSourcesException ;
+
 }
