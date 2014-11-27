@@ -25,31 +25,29 @@
 </head>
 <body>
 <!--###BEGIN_CONTENT###-->
-<h1><a id="Introduction"></a>Data View - OverLOD<a class="section_anchor" href="#Introduction"></a></h1>
+<h1><a id="Introduction"></a>Data View - OverLOD Surfer<a class="section_anchor" href="#Introduction"></a></h1>
 
 <p>
     Data Views are predefined queries (SPARQL), designed by administrators, that will allow developers to request data in common formats (JSON, CSV, etc.) without the need to understand the underlying RDF format and ontologies.
+<p>
+	Developpers can get the results by doing a GET on the /dataView web service:
+	<pre>GET /dataView?viewName=&lt;viewName&gt;&amp;format=application/sparql-results+json</pre>
+	See the Webservice page for more details.
 <p>
 	<span style="text-decoration: underline;"><b>Queries with parameters</b></span>
 	<BR>
 	A very basic mechanism has been chosen to allow a client to pass parameters to the underlying query when requesting a dataView :
 	<ul>
 	<li>When saving the dataView: after testing a query, replace a specific value by an identifying string starting with the "p_" prefix, for instance if you want to pass a 'year' value as parameter:
-	<br>replace "<span style="font-family: consolas, arial;">?s onto:year 2010</span>" by "<span style="font-family: consolas, arial;">?s onto:year p_year</span>"
-	<br>This edited query can't be run, but can be saved.
+	<br>replace <pre>?s onto:year 2010</pre> by <pre>?s onto:year p_year</pre>
+	This edited query can't be run, but can be saved.
 	</li>
 	<li>When calling the dataView web service: pass the value in the query string, using that identifying string as the parameter name.</li>
 	</ul>
 	HTTP call example: 
-	<BR><span style="font-family: consolas, arial;">
-	&nbsp;&nbsp;&nbsp;http://myMarmotta/dataView?viewName=aDataViewWithYearParameter&p_year=2002
-	</span><BR><BR>
-	Javascript example using the DataViewClient, and including a p_areaURI URL parameter:  
-	<BR><span style="font-family: consolas, arial;">
-	&nbsp;&nbsp;&nbsp;var queryParams = {p_areaURI:encodeURIComponent("http://dbpedia.org/resource/Geneva"), p_year:"2002"};
-	<BR>
-	&nbsp;&nbsp;&nbsp;dataViewClient.getDataView('aDataViewWithAreaAndYearParameters', queryParams,"text/csv", success, failure) ;
-	</span>
+	<pre>&nbsp;&nbsp;&nbsp;http://myMarmotta/dataView?viewName=aDataViewWithYearParameter&p_year=2002</pre>
+	Javascript example using the DataViewClient, and including a "p_areaURI" URL parameter:  
+	<pre>&nbsp;&nbsp;&nbsp;var queryParams = {p_areaURI:encodeURIComponent("http://dbpedia.org/resource/Geneva"), p_year:"2002"};<BR>&nbsp;&nbsp;&nbsp;dataViewClient.getDataView('aDataViewWithAreaAndYearParameters', queryParams,"text/csv", success, failure) ;</pre>
 <p>
 	This module is developed by the HES-SO Valais-Wallis, <a href="http://www.hevs.ch/fr/rad-instituts/institut-informatique-de-gestion/">Institut Informatique de Gestion</a> in Switzerland, as part of the OverLOD Surfer project.
 	

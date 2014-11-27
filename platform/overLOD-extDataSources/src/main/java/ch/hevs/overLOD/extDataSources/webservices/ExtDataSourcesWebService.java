@@ -69,7 +69,26 @@ import ch.hevs.overLOD.extDataSources.exceptions.ExtDataSourcesException;
 /**
  * Web Service for External Data Sources (EDS) management
  * 
+ * External Data Sources (EDS) aims at managing data coming from external sources, 
+ * as RDF files, RDFa, data from a SPARQL end-point or even non-RDF structured data 
+ * that needs to be translated to RDF (RDfized) as for instance Microdata from schema.org.
+ * 
+ * When discovering Marmotta, we found out that this feature is really similar 
+ * to Marmotta's LDCache feature, but we still needed a few different behaviors.
+ * 
+ * Currently Linked Data and RDF files are handled using LDClient, in a synchronous way sofar
+ * 	A new LDClient for RDF Files has been created (this module thus needs the proper version of 'ldclient-provider-rdf')
+ *  	Make sure the RDFFileProvider and RDFFileEndpoint are registered in LDClient for the
+ * 		RDF files handling to work correctly. When compiling, this is tested by the unit test.
+ *  Other LDClients should be tested in the future
+ * 
+ * So far EDS parameters are read only and can be set only when creating the EDS
+ * 	to change the parameters, the EDS must be deleted and a new one created by the user
+ * 
+ * See the module's about.html for more information 
+ *
  * @author Fabian Cretton, HES-SO OverLOD surfer project
+ * http://www.hevs.ch/fr/rad-instituts/institut-informatique-de-gestion/projets/overlod-surfer-6349
  */
 @Path("/EDS")
 @ApplicationScoped
@@ -86,13 +105,6 @@ public class ExtDataSourcesWebService {
     
     @Context
     UriInfo uri ;
-    
-    private ClientConfiguration clientConfig;
-
-    //@Inject
-    //private ClientConfiguration iclientConfig;
-    
-    private static final String URL_EXTERNAL_IMPORT_SERVICE  = "/import/external";
     
     /**
      * Get the list of configured External Data Sources (EDS)
@@ -114,13 +126,8 @@ public class ExtDataSourcesWebService {
         return Response.ok().entity(mappings).build();
     }
     
-
-    
     /**
-     * Add a new External Data Source parameters
-     * RDF files and Linked Data are currently handled using LDClient
-     *  Make sure the RDFFileProvider and RDFFileEndpoint are registered in LDClient for the
-     * 	RDF files handling to work correctly
+     * Add a new External Data Source parameters using LDClient
      * 
      * @param headerAuth http authentication
      * @param contentType mimetype of the data source
@@ -177,24 +184,21 @@ public class ExtDataSourcesWebService {
         // Start the import using  LDClient
         try {
         	importWithLDClientResultString = edsService.importWithLDClient(uri.getBaseUri().toString(), headerAuth, EDSType, url, context, filterFileName, validationFileName) ;
-
-    		 // Former code which was using the "import" service for RDF files
-        	 // callImportWS4RDFFile(headerAuth, contentType, url, context) ;
 		} catch (ExtDataSourcesException e) {
 			return Response.status(Status.INTERNAL_SERVER_ERROR).entity(e.getMessage()).build();
 		}
         	
         // If import done or started, save the EDS parameters
         try {
-        	// then return the confirmation string returned by importWithLD
         	edsService.addEDSParams(EDSType, contentType, url, context, String.valueOf(timeStamp), filterFileName, validationFileName) ;        	
+        	// return the confirmation string returned by importWithLD
 			return Response.ok(importWithLDClientResultString).build();
 		} catch (ExtDataSourcesException e) {
 			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error - The import is running, but an error occured while saving External Data Source parameters: "+ e.getMessage()).build();
 		}
     }
 
-    /*
+    /**
      * For a URL: test that the URL is accessible
      * 
      * For information: the Marmotta's import web service does a test with only "conn.connect()"
@@ -202,11 +206,13 @@ public class ExtDataSourcesWebService {
      * which doesn't mean that the specific resource is accessible.
      * The test here request HTTP "HEAD"
      * 
-     * Handling a timeout could improve this test
+     * Handling a timeout could improve this test efficiency
      * 
-     * Throws an exception if the url can't be accessed
-     * Return the long value of conn.getLastModified(): milliseconds since 01.01.1970
-     * if that value is '0', return the long value of conn.getExpiration()
+     * We had a look at ldclient.ping(url), which seems to fail for a Linked Data URL
+     * 
+     * @param url the URL to be tested
+     * @return the long value of conn.getLastModified(): milliseconds since 01.01.1970, if that value is '0', return the long value of conn.getExpiration()
+     * @throws ExtDataSourcesException Throws an exception if the url can't be accessed
      */
     private long testURLAccess(String url) throws ExtDataSourcesException
     {
@@ -226,9 +232,9 @@ public class ExtDataSourcesWebService {
 	        
 	        if (responseCode != 200) {
 	            log.debug("status different than 200: "+responseCode) ;
-	            // return Response.status(502).entity("the URL passed as argument cannot be retrieved: " + responseCode).build();
 	            throw new ExtDataSourcesException("the URL passed as argument cannot be retrieved: " + responseCode);
 	        } 
+	        
 	        // getLastModified() can't be used to test if the file exists or not
 	        // -> if the URL don't exist, getLastModified just returns 0, with no error
 	        timestamp = conn.getLastModified() ; // milliseconds since 01.01.1970
@@ -241,11 +247,9 @@ public class ExtDataSourcesWebService {
 	        }
 		} catch (MalformedURLException e) {
 	        log.debug("malformed URL: "+ e.getMessage()) ;
-	        // return Response.status(502).entity("the URL passed as argument cannot be retrieved - malformed URL").build();
             throw new ExtDataSourcesException("the URL passed as argument cannot be retrieved - malformed URL (" + e.getMessage() + ")");
 	    } catch(IOException e) {
 	        log.debug("IOException: "+ e.getMessage()) ;
-	        // return Response.status(502).entity("the URL passed as argument cannot be retrieved:"+ e.getMessage()).build();
             throw new ExtDataSourcesException("the URL passed as argument cannot be retrieved - IO Exception (" + e.getMessage() + ")");
 	    } finally {
 	    	if (conn != null)
@@ -267,27 +271,21 @@ public class ExtDataSourcesWebService {
      * @HTTP 500 in case there was an error during the execution
      * @return a string which is either a validation message or an error message
      */
-    /*
-     * the update is made of a delete and than an add
-     * to ensure that all triples are updated in the corresponding context
-     * Currently, this is a 'forced' update, the update is performed even if the timeStamp of the source is not more recent than
-     * the timeStamp of the local copy (EDS param).
-     */
     @PUT
     @Path("/EDSParams")
     public Response updateEDS(@HeaderParam("Authorization") String headerAuth, @QueryParam("context") String context) {
         log.debug("PUT updateEDS context:{}", context);
-
+        long timeStamp = 0 ;
+        String updateConfirmationMsg = "" ;
+        
         if (StringUtils.isBlank(context))
             return Response.status(Status.BAD_REQUEST).entity("Web Service call error: missing 'context' parameter").build();
 
-        // EDSType (and mime-type ?) must be read from the stored EDS
+        // Get the parameters for that EDS
         EDSParams theEDSParams = edsService.getEDSParams(context) ;
         
         if (theEDSParams == null)
 			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error - No EDS correspond to the context '" + context + "'").build();
-        
-        long timeStamp = 0 ;
         
         try
         {
@@ -300,7 +298,7 @@ public class ExtDataSourcesWebService {
         // update the data in the store
         try
         {
-        	updateEDSinStore(headerAuth, theEDSParams) ;
+        	updateConfirmationMsg = updateEDSinStore(headerAuth, theEDSParams) ;
         }
         catch (ExtDataSourcesException e) {
 			return Response.status(Status.INTERNAL_SERVER_ERROR).entity(e.getMessage()).build();
@@ -310,7 +308,7 @@ public class ExtDataSourcesWebService {
         // is appended to the success message
        	String updateTimeStampErrorMsg = updateTimeStamp(theEDSParams, timeStamp) ;
         
-		return Response.ok("The EDS was updated successfuly." + updateTimeStampErrorMsg).build();
+		return Response.ok("The EDS was updated successfuly. " + updateConfirmationMsg + " " + updateTimeStampErrorMsg).build();
     }
     
     /**
@@ -318,8 +316,9 @@ public class ExtDataSourcesWebService {
      * @param headerAuth the header authentication passed to the web service call
      * @param theEDSParams the EDSParams to update
      * @throws ExtDataSourcesException
+     * @return the success message from edsService.importWithLDClient()
      */
-    private void updateEDSinStore(String headerAuth, EDSParams theEDSParams) throws ExtDataSourcesException
+    private String updateEDSinStore(String headerAuth, EDSParams theEDSParams) throws ExtDataSourcesException
     {
 	    // First delete the existing Context
 		if (!contextService.removeContext(theEDSParams.context))
@@ -328,8 +327,7 @@ public class ExtDataSourcesWebService {
 		
 	    // Then re-start the import
 	    try {
-        	edsService.importWithLDClient(uri.getBaseUri().toString(), headerAuth,  theEDSParams.contentType, theEDSParams.url, theEDSParams.context, theEDSParams.filterFileName, theEDSParams.validationFileName) ;
-			// callImportWS4RDFFile(headerAuth, theEDSParams.contentType, theEDSParams.url, theEDSParams.context) ;
+        	return edsService.importWithLDClient(uri.getBaseUri().toString(), headerAuth,  theEDSParams.contentType, theEDSParams.url, theEDSParams.context, theEDSParams.filterFileName, theEDSParams.validationFileName) ;
 		} catch (ExtDataSourcesException e) {
 			throw new ExtDataSourcesException(e.getMessage()) ;
 		}
@@ -355,8 +353,8 @@ public class ExtDataSourcesWebService {
     }
     
 	/**
-	  * Deletes a EDS: its configuration and its named graph (if deleteGraph=true)
-	*
+	 * Deletes a EDS: its parameters and its named graph (if deleteGraph=true)
+	 * The returned message will handle information for both operations: delete context and delete parameters
 	 * @param context the graph (context) of the EDS, which is used to identify the EDS
 	 * @param deleteGraph if false: delete only the EDS configuration, otherwise delete the graph (context) as well 
      * @HTTP 200 in case the delete was executed successfully
@@ -377,7 +375,7 @@ public class ExtDataSourcesWebService {
         		deleteSuccessful = contextService.removeContext(context);
         }
 
-        // Delete the EDS parameters
+        // Delete the EDS parameters and manage different messages
         try {
         	if (deleteGraph && !deleteSuccessful)
         		return Response.ok(edsService.deleteEDSParams(context) + " \n(BUT an error occured to delete the context! Please delete it manually.)").build();
@@ -403,7 +401,7 @@ public class ExtDataSourcesWebService {
      * 
      * Currently two kind of timestamps are handled: either a "last-update" or an "expires"
      * All those timestamps are milliseconds since 1.1.1970
-     * In this simple version, this is differenciated by testing if the timestamp is more recent than today:
+     * In this simple version, the kind of timestamp is differenciated by testing if the timestamp is more recent than today:
      * - if yes, timestamp is a past date, it is considered a "last-update" and so the current timestamp of the
      * 		original resource needs to be retrieved
      * - if no, timestamp is a futur date, it is considered as "expires" value and so no update is needed
@@ -434,7 +432,7 @@ public class ExtDataSourcesWebService {
 			
 	        Iterator<String> it = mappings.keySet().iterator();
 
-	        while(it.hasNext()){
+	        while(it.hasNext()){ // loop on all EDS
 	          String context = (String)it.next();
 	          EDSParams params = (EDSParams) mappings.get(context) ; 
 
@@ -449,13 +447,13 @@ public class ExtDataSourcesWebService {
 		          timeStamp = testURLAccess(params.url) ;
 		          }
 		          catch(ExtDataSourcesException e){
-		          	// return Response.status(502).entity(e.getMessage()).build();
 		        	log.debug("Can't access EDS URL '" + params.url + "', exception: " + e.getMessage());
 		          }
 		          
 		          if (timeStamp > localTimeStamp)
 		          {
 		        	  log.debug("Update needed for '" + params.context + "'") ;
+		        	  
 		              // update the data in the store
 		              try
 		              {
@@ -486,11 +484,10 @@ public class ExtDataSourcesWebService {
 	          }
 	        }
 		} catch (ExtDataSourcesException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
+  			return Response.status(Status.INTERNAL_SERVER_ERROR).entity(e1.getMessage()).build();
 		}
         
-        return Response.ok().entity(updatedEDSList).build(); // "yes-done!", MediaType.TEXT_PLAIN)
+        return Response.ok().entity(updatedEDSList).build();
     }
     
     /**
@@ -514,7 +511,7 @@ public class ExtDataSourcesWebService {
     } 
     
     /**
-     * Get the list of data validatores files, files that allow to check data according to constraints
+     * Get the list of data validators files, files that allow to check data according to constraints
      * @return Return a Array of string that is the list of the names of the existing validators files
      */
     @GET
@@ -532,75 +529,5 @@ public class ExtDataSourcesWebService {
 
         return Response.ok().entity(dataValidatorsList).build();
     }       
-    /*
-     * The first implementation of adding an RDF file as EDS and launching the data load
-     * DEPRECATED as the import is now based on LDClient
-     * 
-     * Import a file from URL, by calling the 'import' web service
-     * That web service will start a thread to load the data asynchronously
-     * 
-     * headerAuth: http authentication
-     * 	When Marmotta is in a secure mode (restricted for instance), http authentication is used with user/pwd information
-     *		This information is then needed to call the other web service
-     * 		Setting the user/password inside the ClientConfiguration() seems of no use as those information
-     * 		are not handled by the HttpUtils methods, and anyway this information has to be set on the
-     * 		POST object, not on the HttpClient
-     * contentType: the mimetype of the data to be loaded
-     * url: the url of the data
-     * context: the context to which the data will be saved in the store
-     * return true if ok, otherwise throws an exception
-     * throws ExtDataSourcesException
-     */
-    private Boolean callImportWS4RDFFile(String headerAuth, String contentType, String url, String context) throws ExtDataSourcesException
-    {
-    	// create a client configuration with the current WS uri's
-        clientConfig = new ClientConfiguration(uri.getBaseUri().toString()) ;
-        
-        HttpClient httpClient = HTTPUtil.createClient(clientConfig);
 
-        String serviceUrl = null ;
-		try {
-			serviceUrl = clientConfig.getMarmottaUri() + URL_EXTERNAL_IMPORT_SERVICE
-					+ "?url=" + URLEncoder.encode(url, "utf-8")
-					+ "&context=" + URLEncoder.encode(context, "utf-8");
-		} catch (Exception e) {
-            log.error("could not encode URI parameter",e.getMessage());
-			throw new ExtDataSourcesException(e.getMessage());
-		}
-
-    	log.debug("callImportWS- server internal POST call to the import web service:" + serviceUrl);
-    	
-        HttpPost post = new HttpPost(serviceUrl);
-        post.setHeader("Content-Type", contentType);
-        
-        // if a credential is passed to this web service, pass it to the one we call
-        // otherwise the user will be asked for credential, and this call will fail
-        if (headerAuth != null && !headerAuth.equals("")) // null if marmotta is configured with no security option
-        	post.setHeader("Authorization", headerAuth);
-        
-        try {
-            HttpResponse response = httpClient.execute(post);
-            
-            switch(response.getStatusLine().getStatusCode()) {
-                case 200: 
-                    log.debug("import thread started");
-                    return true;
-                case 412: 
-                    log.error("mimetype not supported");
-        			throw new ExtDataSourcesException("mimetype not supported: " + response.getStatusLine().getReasonPhrase());
-                default:
-                    log.error("error importing:{}",response.getStatusLine().getReasonPhrase());
-        			throw new ExtDataSourcesException("error importing:: " + response.getStatusLine().getReasonPhrase());
-            }
-            
-        } catch (UnsupportedEncodingException e) {
-            log.error("Import Web Service Error - could not encode URI parameter",e.getMessage());
-			throw new ExtDataSourcesException("Import Web Service Error - could not encode URI parameter (" + e.getMessage() + ")");
-		} catch (Exception e) {
-            log.error("Import Web Service exception:",e.getMessage());
-			throw new ExtDataSourcesException("Import Web Service Error: " + e.getMessage());
-		} finally {
-            post.releaseConnection();
-        }    
-    }    
 }

@@ -26,12 +26,20 @@ import ch.hevs.overLOD.extDataSources.exceptions.ExtDataSourcesException;
 
 /**
  * External Data Source (EDS) API
+ *
+ * See ExtDataSourcesImpl for the current implementation
+ * See ExtDataSourcesWebService comment for a general introduction to the EDS module
  * 
  * @author Fabian Cretton, HES-SO OverLOD surfer project
- * 
+ * http://www.hevs.ch/fr/rad-instituts/institut-informatique-de-gestion/projets/overlod-surfer-6349
  */
 public interface ExtDataSources {
 
+	/**
+	 * Get the list of EDS params (from the JSON file)
+	 * @return a map of EDS parameter identifiers with their EDSParam object
+	 * @throws ExtDataSourcesException if an error occurs while reading the file
+	 */
     public TreeMap<String,EDSParams> getEDSParamsList() throws ExtDataSourcesException ;
 
     /**
@@ -109,7 +117,18 @@ public interface ExtDataSources {
 	 */
 	public String importWithLDClient(String marmottaURL, String headerAuth, String LDClientType, String url, String context, String filterFileName, String validationFileName)  throws ExtDataSourcesException ;
  
+	/**
+	 * Get the list of DataFilters (i.e. files found in  $marmotta-home\EDS\EDSFilters
+	 * @return a String list of file names
+	 * @throws ExtDataSourcesException any error that occurs while reading the folder
+	 */
     public ArrayList<String> getDataFiltersList() throws ExtDataSourcesException ;
+    
+	/**
+	 * Get the list of DataValidators (i.e. files found in  $marmotta-home\EDS\SPIN\Constraints
+	 * @return a String list of file names
+	 * @throws ExtDataSourcesException any error that occurs while reading the folder
+	 */
     public ArrayList<String> getDataValidatorsList() throws ExtDataSourcesException ;
 
 }

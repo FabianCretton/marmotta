@@ -31,10 +31,12 @@ import java.util.TreeMap;
 import org.apache.commons.io.IOUtils;
 import org.apache.marmotta.client.ClientConfiguration;
 import org.apache.marmotta.platform.core.api.config.ConfigurationService;
+import org.apache.marmotta.platform.core.events.ConfigurationChangedEvent;
 import org.slf4j.Logger;
 
 import javax.annotation.PostConstruct;
 import javax.enterprise.context.ApplicationScoped;
+import javax.enterprise.event.Observes;
 import javax.inject.Inject;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.UriInfo;
@@ -44,10 +46,16 @@ import ch.hevs.overLOD.dataView.exceptions.DataViewException;
 
 /**
  * Default Implementation of DataView
+ * 
+ * For more information about the overriden methods, see "DataView"
+ * See DataViewWebService comment for a general introduction to the EDS module
+ *
+ * @author Fabian Cretton, HES-SO OverLOD surfer project
+ * http://www.hevs.ch/fr/rad-instituts/institut-informatique-de-gestion/projets/overlod-surfer-6349
  */
 @ApplicationScoped
 public class DataViewImpl implements DataView {
-    String fileExtension = ".sparql" ; // extension of the files where DataViews are saved
+    String fileExtension = ".sparql" ; // extension of the DataViews files (sparql queries)
 
     @Inject
     private Logger log;
@@ -56,6 +64,10 @@ public class DataViewImpl implements DataView {
     private ConfigurationService configurationService;
 
     String dataViewFolder ;
+    
+    // Will be read from the module configuration
+    boolean googleAnalyticsEnabled = false ; 
+    String googleAnalyticsTrackingID = "" ;
 
     @PostConstruct
     public void initialize() 
@@ -73,21 +85,47 @@ public class DataViewImpl implements DataView {
         
         // finally add a separator for further operations
         dataViewFolder += File.separator ;
+        
+        readConfiguration() ;
+    }
+    
+    public void readConfiguration()
+    {
+    	googleAnalyticsEnabled = configurationService.getBooleanConfiguration("dataView.GoogleAnalytics", false) ;
+    	googleAnalyticsTrackingID = configurationService.getStringConfiguration("dataView.GoogleAnalyticsTrackingID", null) ;
+    	log.debug("DataView configuration 'dataView.GoogleAnalytics': {}", googleAnalyticsEnabled) ;
+    	log.debug("DataView configuration 'dataView.GoogleAnalyticsTrackingID': {}", googleAnalyticsTrackingID) ;
     }
 
-    /**
-     * if "dataView.GoogleAnalytics" is true, return the TrackingID from parameter "dataView.GoogleAnalyticsTrackingID",
-     * otherwise null
+    /*
+     * (non-Javadoc)
+     * @see ch.hevs.overLOD.dataView.api.DataView#getGoogleAnalyticsTrackingID()
      */
     @Override
     public String getGoogleAnalyticsTrackingID()
     {
-    	if (configurationService.getBooleanConfiguration("dataView.GoogleAnalytics", false))
-    		return configurationService.getStringConfiguration("dataView.GoogleAnalyticsTrackingID", null) ;
+    	if (googleAnalyticsEnabled)
+    		return googleAnalyticsTrackingID ;
     	
     	return null ;
     }
     
+    /**
+     * Detect a change in the dataView configuration, and if so reload the configuration values
+     * @param event
+     */
+    public void configurationEventHandler(@Observes ConfigurationChangedEvent event) 
+    {
+   		if (event.containsChangedKeyWithPrefix("dataView.")) {
+   	    	log.debug("Data View: Reloading configuration - change detected");
+   			readConfiguration() ;
+    	}
+   	}
+    
+    /*
+     * (non-Javadoc)
+     * @see ch.hevs.overLOD.dataView.api.DataView#getDataViewsList()
+     */
     @Override
     public ArrayList<String> getDataViewsList() throws DataViewException
     {
@@ -114,12 +152,9 @@ public class DataViewImpl implements DataView {
     	return dataViewsList ;
     }
 
-    
-    /**
-     * Method used to add (update=false) or update (update=true) a DataView
-     * An exception will be thrown if:
-     * - adding with a viewName (file) that already exists
-     * - updating with a viewName (file) that don't exist
+    /*
+     * (non-Javadoc)
+     * @see ch.hevs.overLOD.dataView.api.DataView#saveDataView(java.lang.String, java.lang.String, boolean)
      */
     @Override
     public synchronized String saveDataView(String viewName, String query, boolean update) throws DataViewException {
@@ -146,7 +181,7 @@ public class DataViewImpl implements DataView {
         	if (!dataViewfile.exists())
         		throw new DataViewException("Impossible to update the DataView '" + viewName + "': file not found!") ;
         		
-        // Update the file content: the query
+        // Update the file content with the query
 		FileOutputStream fop = null;
 		try {
 			fop = new FileOutputStream(dataViewfile);
@@ -161,8 +196,7 @@ public class DataViewImpl implements DataView {
 				try {
 					fop.close();
 				} catch (IOException e1) {
-					// TODO Auto-generated catch block
-					e1.printStackTrace();
+					log.error("Error writing the dataView content for '{}': {}", viewName, e1.getMessage());
 				}
     		
     		throw new DataViewException("Impossible to save the query to the DataView file '" + viewName + "': " + e.getMessage()) ;
@@ -170,9 +204,10 @@ public class DataViewImpl implements DataView {
         	
         return "DataView '" + viewName + "' saved successfully!";
     }
-    
-    /**
-     * Read the SPARQL query corresponding to a viewName and return the string
+
+    /*
+     * (non-Javadoc)
+     * @see ch.hevs.overLOD.dataView.api.DataView#readDataViewQuery(java.lang.String)
      */
 	@Override
     public String readDataViewQuery(String viewName) throws IOException
@@ -199,10 +234,12 @@ public class DataViewImpl implements DataView {
 		}
 		
 		return query ;
-    }    
-    /**
-     * Delete a DataView
-     */
+    }
+	
+	/*
+	 * (non-Javadoc)
+	 * @see ch.hevs.overLOD.dataView.api.DataView#deleteDataView(java.lang.String)
+	 */
     @Override
     public synchronized String deleteDataView(String viewName)  throws DataViewException {
         log.debug("deleteDataView {}", viewName);

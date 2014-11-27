@@ -17,8 +17,12 @@
  */
 package ch.hevs.overLOD.services;
 
+import java.util.Set;
 import java.util.TreeMap;
 
+import org.apache.marmotta.ldclient.api.endpoint.Endpoint;
+import org.apache.marmotta.ldclient.api.provider.DataProvider;
+import org.apache.marmotta.ldclient.services.ldclient.LDClient;
 import org.apache.marmotta.platform.core.test.base.EmbeddedMarmotta;
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -53,6 +57,22 @@ public class ExtDataSourcesServiceTest {
     	
     	Assert.assertTrue(obj instanceof TreeMap);
     	// TreeMap<String,EDSParams>
+    }
+    
+    @Test
+    public void testLDClientProviders()
+    {
+    	// ensure that the "RDF File" endpoint is loaded in Marmotta and will handle RDF files import
+		LDClient ldclient = new LDClient();
+
+		Endpoint endpoint =ldclient.getEndpoint("http://foo.rdf") ;
+		Assert.assertTrue(endpoint.getName().equals("RDF File")) ;
+		
+		endpoint =ldclient.getEndpoint("http://foo.ttl") ;
+		Assert.assertTrue(endpoint.getName().equals("RDF File")) ;
+		
+		endpoint =ldclient.getEndpoint("http://foo.n3") ;
+		Assert.assertTrue(endpoint.getName().equals("RDF File")) ;
     }
 
     @AfterClass

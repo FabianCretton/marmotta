@@ -51,6 +51,7 @@ import org.apache.marmotta.ldclient.exception.DataRetrievalException;
 import org.apache.marmotta.ldclient.model.ClientResponse;
 import org.apache.marmotta.ldclient.services.ldclient.LDClient;
 import org.apache.marmotta.platform.core.api.config.ConfigurationService;
+import org.apache.marmotta.platform.core.events.ConfigurationChangedEvent;
 import org.openrdf.model.Statement;
 import org.openrdf.query.BooleanQuery;
 import org.openrdf.query.GraphQuery;
@@ -85,6 +86,7 @@ import com.hp.hpl.jena.util.FileUtils;
 
 import javax.annotation.PostConstruct;
 import javax.enterprise.context.ApplicationScoped;
+import javax.enterprise.event.Observes;
 import javax.inject.Inject;
 import javax.xml.bind.DatatypeConverter;
 
@@ -96,11 +98,17 @@ import ch.hevs.overLOD.extDataSources.exceptions.ExtDataSourcesException;
 /**
  * Default Implementation of {@link ExtDataSources}
  * 
- * Handles the list of External Data Sources parameters (EDSParams) that is read
- * and written to a .json file in: 
- * configurationService.getHome() + "/EDS/EDSParamsList.json"
+ * Two different information are handled for one EDS:
+ * - the parameters for that EDS
+ * 		The list of External Data Sources parameters (EDSParams) is read and written to a .json file in: 
+ * 		configurationService.getHome() + "/EDS/EDSParamsList.json"
+ * - the content of the data, loaded in a standard Marmotta's context
+ * 
+ * For more information about the overriden methods, see "ExtDataSources"
+ * See ExtDataSourcesWebService comment for a general introduction to the EDS module
  * 
  * @author Fabian Cretton, HES-SO OverLOD surfer project
+ * http://www.hevs.ch/fr/rad-instituts/institut-informatique-de-gestion/projets/overlod-surfer-6349
  */
 @ApplicationScoped
 public class ExtDataSourcesImpl implements ExtDataSources {
@@ -124,6 +132,10 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 
 	Model modelSpinTemplates = null;
 
+    // From the module configuration
+	boolean spinTemplateFileReload = false ; // will also be set to true if the name of the template file was changed in the config
+	String spinTemplateFileName = null ;
+	
 	@PostConstruct
 	public void initialize() {
 		log.debug("ExtDataSourcesImpl initialize() - loading EDSParams list from disk");
@@ -143,45 +155,93 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 			log.error("ExtDataSourcesImpl.initialize(), loadEDSParamsListFromDisk() exception: " + e.getMessage());
 		}
 
-		try {
-			loadModelSpinTemplatesFromDisk();
-		} catch (ExtDataSourcesException e) {
-			log.error("ExtDataSourcesImpl.initialize(), loadModelSpinTemplatesFromDisk() exception: " + e.getMessage());
-		}
-	}
+		readConfiguration() ;
+    }
+    
+    /**
+     * Read configuration
+     * And load the template file from disk if:
+     * - never loaded so far (spinTemplateFileName == null)
+     * - force reload from configuration
+     * - the filename has changed
+     */
+	public void readConfiguration()
+    {
+		String newSpinTemplateFileName = configurationService.getStringConfiguration("EDS.dataValidation_SPINTemplateFile"); 
+    	spinTemplateFileReload = configurationService.getBooleanConfiguration("EDS.dataValidation_SPINTemplateFile_ForceReload");
 
-	/**
-	 * @return the full path to the SpinTemplate file defined in the parameters
-	 */
-	public String getConfSpinTemplateFile() {
-		return marmottaHomeFolder + "\\EDS\\SPIN\\Templates\\" + configurationService.getStringConfiguration("EDS.dataValidation_SPINTemplateFile");
+    	log.debug("EDS configuration 'dataValidation_SPINTemplateFile_ForceReload': {}", spinTemplateFileReload) ;
+    	log.debug("EDS configuration 'dataValidation_SPINTemplateFile': {}", newSpinTemplateFileName) ;
 
-	}
+    	if (spinTemplateFileReload || spinTemplateFileName == null || !newSpinTemplateFileName.equals(spinTemplateFileName))
+    	{
+        	spinTemplateFileName = newSpinTemplateFileName ;
+        	spinTemplateFile = marmottaHomeFolder + "\\EDS\\SPIN\\Templates\\" + newSpinTemplateFileName ;
 
-	public boolean getConfSpinTemplateFileForceReload() {
-		return configurationService.getBooleanConfiguration("EDS.dataValidation_SPINTemplateFile_ForceReload");
-	}
+    		try {
+    			loadModelSpinTemplatesFromDisk();
+    			if (spinTemplateFileReload)
+    				setConfSpinTemplateFileForceReload(false); // then change back the value to false
 
+    		} catch (ExtDataSourcesException e) {
+    			log.error("ExtDataSourcesImpl.initialize(), loadModelSpinTemplatesFromDisk() exception: " + e.getMessage());
+    		}
+    	}
+    }
+
+    /**
+     * Detect a change in the EDS configuration, and if so reload the configuration values
+     * @param event
+     */
+    public void configurationEventHandler(@Observes ConfigurationChangedEvent event) 
+    {
+   		if (event.containsChangedKeyWithPrefix("EDS.dataValidation")) {
+   	    	log.debug("EDS: Reloading configuration - change detected");
+   			readConfiguration() ;
+    	}
+   	}
+    
+    /**
+     * Change the configuration value for "EDS.dataValidation_SPINTemplateFile_ForceReload"
+     * @param value true/false
+     */
 	public void setConfSpinTemplateFileForceReload(boolean value) {
 		configurationService.setBooleanConfiguration("EDS.dataValidation_SPINTemplateFile_ForceReload", value);
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see ch.hevs.overLOD.extDataSources.api.ExtDataSources#getEDSParamsList()
+	 */
 	@Override
 	public TreeMap<String, EDSParams> getEDSParamsList() throws ExtDataSourcesException {
 		return cacheEDSParamsList.getList();
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see ch.hevs.overLOD.extDataSources.api.ExtDataSources#getDataFiltersList()
+	 */
 	@Override
     public ArrayList<String> getDataFiltersList() throws ExtDataSourcesException{
 		return getFolderFilesList(EDSFiltersFolder) ;
 	}
 	
+	/*
+	 * (non-Javadoc)
+	 * @see ch.hevs.overLOD.extDataSources.api.ExtDataSources#getDataValidatorsList()
+	 */
 	@Override
     public ArrayList<String> getDataValidatorsList() throws ExtDataSourcesException
     {
 		return getFolderFilesList(spinConstraintsFolder) ;
     }
 
+	/**
+	 * Get the list of files found in a folder
+	 * @param folderPath the folder to be listed
+	 * @return
+	 */
 	public ArrayList<String> getFolderFilesList(String folderPath)
 	{
     	ArrayList<String> filesList = new ArrayList<String>() ;
@@ -197,22 +257,21 @@ public class ExtDataSourcesImpl implements ExtDataSources {
     	return filesList ;
 	}
 	
+	/*
+	 * (non-Javadoc)
+	 * @see ch.hevs.overLOD.extDataSources.api.ExtDataSources#addEDSParams(java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String)
+	 */
 	@Override
 	public String addEDSParams(String EDSType, String contentType, String url, String context, String timeStamp, String filterFileName, String validationFileName) throws ExtDataSourcesException {
 		log.debug("saving EDSParams EDSType:{}, contentType:{} url:{} context:{} timeStamp:{} filterFileName:{} validationFileName:{}", EDSType, contentType, url, context, timeStamp, filterFileName, validationFileName);
 
-		// an EDS is read only, once created it will not change, if params
-		// change (the url, the mimetype), than a new EDS has to be created
-		// so ensure here that an EDS is not saved with an existing context (the
-		// identifier)
+		// Ensure the context for the new EDS don't exist yet
 		if (cacheEDSParamsList.exists(context))
 			throw new ExtDataSourcesException("A new EDS can't be added with a context already used for another one");
 
 		EDSParams aEDSParams = new EDSParams(EDSType, contentType, url, context, timeStamp, filterFileName, validationFileName);
 
-		synchronized (this) // to avoid concurrent access to the object and
-							// saving the serialization. If more is needed, see
-							// 'mutex'
+		synchronized (this) // to avoid concurrent access to the object and while saving the serialization
 		{
 			cacheEDSParamsList.addEDSParams(aEDSParams);
 
@@ -223,6 +282,10 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 		return "Parameters saved for External Data Source: " + context;
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see ch.hevs.overLOD.extDataSources.api.ExtDataSources#setEDSParamsTimeStamp(java.lang.String, java.lang.String)
+	 */
 	@Override
 	public boolean setEDSParamsTimeStamp(String context, String timeStamp) throws ExtDataSourcesException {
 		log.debug("update timeStep of EDSParams identified by context:{}", context);
@@ -238,22 +301,27 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see ch.hevs.overLOD.extDataSources.api.ExtDataSources#getEDSParams(java.lang.String)
+	 */
 	@Override
 	public EDSParams getEDSParams(String context) {
 		return cacheEDSParamsList.get(context);
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see ch.hevs.overLOD.extDataSources.api.ExtDataSources#deleteEDSParams(java.lang.String)
+	 */
 	@Override
 	public String deleteEDSParams(String context) throws ExtDataSourcesException {
 		log.debug("delete EDSParams identified by context:{}", context);
 
-		synchronized (this) // to avoid concurrent access to the object and
-							// saving the serialization. If more is needed, see
-							// 'mutex'
+		// to avoid concurrent access to the object and while saving the serialization 
+		synchronized (this) 
 		{
-			if (!cacheEDSParamsList.deleteEDSParams(context)) // context not
-																// found in the
-																// list
+			if (!cacheEDSParamsList.deleteEDSParams(context)) // context not found in the
 				throw new ExtDataSourcesException("Context '" + context + "' not found in the list of EDS");
 
 			serializeObjectToJSON(cacheEDSParamsList, EDSParamsListFile);
@@ -287,17 +355,18 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 		}
 	}
 
+	/**
+	 * Read the SPIN template file from disk
+	 * 	spinTemplateFile is a class member, set by ReadConfiguration()
+	 * @throws ExtDataSourcesException
+	 */
 	private void loadModelSpinTemplatesFromDisk() throws ExtDataSourcesException {
-		spinTemplateFile = getConfSpinTemplateFile();
 		log.debug("loadModelSpinTemplatesFromDisk: {}", spinTemplateFile);
 
 		// if the model did already exist, it is discarded and recreated
 		modelSpinTemplates = ModelFactory.createDefaultModel();
 		try {
-			FileInputStream inputStream = new FileInputStream(spinTemplateFile); // spinTemplateFile
-																					// a
-																					// class
-																					// member
+			FileInputStream inputStream = new FileInputStream(spinTemplateFile);
 			modelSpinTemplates.read(inputStream, null, FileUtils.langTurtle);
 			inputStream.close();
 		} catch (Exception e) {
@@ -306,7 +375,6 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 		}
 
 		log.debug("EDS Constraints template file size: {}", modelSpinTemplates.size());
-
 	}
 
 	/**
@@ -316,9 +384,7 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 	 * @param objectForClass an instance of the object that is expected
 	 * @return the object, otherwise null if io exception
 	 */
-	private Object JSONSerializationToObject(String filePath, Class objectClass) // ,
-																					// Object
-																					// objectForClass)
+	private Object JSONSerializationToObject(String filePath, Class objectClass)
 	{
 		Object object = null;
 		ObjectMapper mapper = new ObjectMapper();
@@ -346,7 +412,6 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 		ObjectMapper mapper = new ObjectMapper();
 
 		try {
-			// display to console
 			log.debug("serializeObject2JSON - saving.");
 			// convert object to json string, and save to a file
 			mapper.writeValue(new File(filePath), object);
@@ -356,6 +421,10 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 		}
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * @see ch.hevs.overLOD.extDataSources.api.ExtDataSources#importWithLDClient(java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String)
+	 */
 	@Override
 	public String importWithLDClient(String marmottaURL, String headerAuth, String EDSType, String url, String context, String filterFileName, String validationFileName) throws ExtDataSourcesException {
 		log.debug("importWithLDClient:{} -> {}", url, context);
@@ -369,22 +438,10 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 
 		Set<DataProvider> providers = ldclient.getDataProviders();
 
-		/*
-		 * log.debug("List of LDClient providers:"); for(DataProvider provider :
-		 * providers) { log.debug("- " + provider.getName()); }
-		 */
-
-		/*
-		 * A ping on a linked data resource will fail, don't do it if
-		 * (!ldclient.ping(url)) throw new ExtDataSourcesException(
-		 * "The requested Linked Data resource can't be accessed: "+ url);
-		 */
-
 		RepositoryConnection connection = null;
 
 		try {
-			// retrieveResource will look for a provider for that resource
-			ClientResponse result = ldclient.retrieveResource(url);
+			ClientResponse result = ldclient.retrieveResource(url); // look for a provider for that resource
 
 			connection = ModelCommons.asRepository(result.getData()).getConnection();
 			connection.begin();
@@ -396,37 +453,19 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 				log.debug("Import with filter: {}", filterFileName);
 				RDFWriter rdfWriter = Rio.createWriter(format, stringWriter);
 
-				String sparqlQuery = readFilterQuery(filterFileName); // "CONSTRUCT WHERE {?s ?p ?o} LIMIT 3"
-																		// ;
+				String sparqlQuery = readFilterQuery(filterFileName); 
+																		
 				GraphQuery constructQuery = connection.prepareGraphQuery(QueryLanguage.SPARQL, sparqlQuery);
-				// following lines to build a model, just to get the number of
-				// triples through the model.size()
-				// might be more efficient to query the context size() after
-				// import ?
-				// and then directly write the results using
-				// connection.prepareGraphQuery(QueryLanguage.SPARQL,
-				// sparql).evaluate(rdfWriter);
 				GraphQueryResult sparqlResult = constructQuery.evaluate();
+				// A model is build just to get the size of the resulting triples
+				// To be more efficient, we could check the context size() after the import in Marmotta
+				// and then replace those lines by: connection.prepareGraphQuery(QueryLanguage.SPARQL, sparql).evaluate(rdfWriter);
 				importedTriplesCount = QueryResults.asModel(sparqlResult).size();
 				
 				log.debug("Size of the filtered data: " + importedTriplesCount) ; 
 				
 				// Write the results to the writer
 				constructQuery.evaluate(rdfWriter); // to the underlying stringWriter
-
-				/*
-				 * Running the query without a writer and looping on the results
-				 * GraphQuery testConstructQuery =
-				 * connection.prepareGraphQuery(QueryLanguage.SPARQL, sparql);
-				 * GraphQueryResult sparqlResult =
-				 * testConstructQuery.evaluate();
-				 * System.out.println("Query test results:") ; while
-				 * (sparqlResult.hasNext()) { Statement
-				 * statement=sparqlResult.next();
-				 * System.out.println(statement.getSubject().toString() + " " +
-				 * statement.getPredicate().toString() + " " +
-				 * statement.getObject().toString() ) ; }
-				 */
 			} else {
 				log.debug("Import the full data with no filter");
 				importedTriplesCount = connection.size();
@@ -436,8 +475,6 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 			}
 
 			byte[] barray = stringWriter.toString().getBytes("UTF-8");
-			// //byte[] barray =
-			// constructStringWriter.toString().getBytes("UTF-8");
 			InputStream is = new ByteArrayInputStream(barray);
 
 			// spin constraint validation on the filtered data
@@ -447,58 +484,13 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 			} else
 				log.debug("Import with no constraint validation");
 
-			// I intended to use Marmotta ImportClient to upload the data
-			// but that was not working with a secured Marmotta: 401 from the
-			// ImportClient
-			// I tried specifying user/pwd in the configuration: new
-			// ClientConfiguration(marmottaURL, "admin", "pass123");
-			// but with no success - still getting a 401
-			// I did some test by taking user/pwd into account in
-			// HTTPUtil.createPost() and that seemed ok
-			// see comments of uploadDataset() for more information
+			
 			ClientConfiguration configuration = new ClientConfiguration(marmottaURL);
 			configuration.setMarmottaContext(context);
 
+			// Import the data
 			uploadDataset(headerAuth, configuration, is, format.getDefaultMIMEType());
 			is.close();
-
-			/*
-			 * // This code is commented out, but could be used in the future //
-			 * The goal is to handle authentication by extracting the user/pwd
-			 * from the "authorization" header // and then pass those values to
-			 * the ClientConfiguration // the tested code did work properly if
-			 * (headerAuth != null && !headerAuth.equals("")) {
-			 * log.debug("headerAuth specified, decoding: " + headerAuth); //
-			 * "Basic YWRtaW46cGFzczEyMw==" if
-			 * (headerAuth.toLowerCase().startsWith("basic ")) headerAuth =
-			 * headerAuth.substring(6) ; //
-			 * log.debug("headerAuth after removing 'basic ': " + headerAuth);
-			 * byte[] authDecodedByte= Base64.decodeBase64(headerAuth) ; //
-			 * DatatypeConverter.parseBase64Binary(headerAuth) ; // //
-			 * log.debug("debug test: " + new
-			 * String(Base64.decodeBase64("YWRtaW46cGFzczEyMw=="))); String
-			 * authDecoded = new String(authDecodedByte) ; //
-			 * log.debug("decoded auth: "+ authDecoded) ; int colonPos =
-			 * authDecoded.indexOf(":") ; if (colonPos > 0) { String user =
-			 * authDecoded.substring(0, colonPos) ; String pwd =
-			 * authDecoded.substring(colonPos+1) ; //
-			 * log.debug("Creating ClientConfiguration with user:pwd: '" + user
-			 * + ":" + pwd+"'") ;
-			 * 
-			 * configuration = new ClientConfiguration(marmottaURL, user, pwd);
-			 * } } else log.debug("no headerAuth specified");
-			 * 
-			 * ///ClientConfiguration configuration = new
-			 * ClientConfiguration(marmottaURL, "admin", "pass123");
-			 * 
-			 * ImportClient importClient = new ImportClient(configuration);
-			 */
-			// importClient.uploadDataset(is, format.getDefaultMIMEType());
-			// Another method overload exists that accept the string, and it
-			// will handle the transformation to InputStream
-			// importClient.uploadDataset(out.toString(),
-			// format.getDefaultMIMEType());
-
 		} catch (Exception e) {
 			log.error("importWithLDClient exception: " + e.getMessage());
 			throw new ExtDataSourcesException(e.getMessage());
@@ -518,6 +510,41 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 		return "Data successfully imported using the LDClient (" + importedTriplesCount + " triples)";
 	}
 
+	/**
+	 * This method is not used yet, but could serve to extract the user/pwd
+	 * from the authentication parameter, and set those value to a clientConfiguration
+	 */
+	public void extractUserPwdFromAuth(String headerAuth, ClientConfiguration configurationClient)
+	{
+		if (headerAuth != null && !headerAuth.equals("")) 
+		{
+		  log.debug("headerAuth specified, decoding: " + headerAuth); // example: "Basic YWRtaW46cGFzczEyMw=="
+		 
+		 // could there be any other value here ? for instance if Marmotta is set to security.method "DIGEST"
+		 if (headerAuth.toLowerCase().startsWith("basic ")) 
+		  	headerAuth = headerAuth.substring(6) ;
+		 
+		  log.debug("headerAuth after removing 'basic ': " + headerAuth);
+		  
+		  byte[] authDecodedByte= Base64.decodeBase64(headerAuth) ;
+		  DatatypeConverter.parseBase64Binary(headerAuth) ;
+		  
+		  // log.debug("debug test: " + new String(Base64.decodeBase64("YWRtaW46cGFzczEyMw=="))); 
+		  String authDecoded = new String(authDecodedByte) ;
+		  
+		  int colonPos = authDecoded.indexOf(":") ;
+		  if (colonPos > 0) {
+	       String user = authDecoded.substring(0, colonPos) ; 
+		   String pwd = authDecoded.substring(colonPos+1) ; 
+		   log.debug("Updating ClientConfiguration with user:pwd: '" + user + ":" + pwd+"'") ;
+		  
+		   configurationClient.setMarmottaUser(user);
+		   configurationClient.setMarmottaPassword(pwd);
+		  }
+		}
+		else log.debug("no headerAuth specified");
+		
+	}
 	/**
 	 * Get a Filter query from disk file
 	 * 
@@ -551,17 +578,21 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 	}
 
 	/**
-	 * Check one rdf data set (passed as InputStream) againts a SPIN constraints
-	 * file If constraints violation are detected, an Exception is raised with
+	 * Check one rdf data set (passed as InputStream) againts a SPIN constraints file
+	 * If constraints violation are detected, an Exception is raised with
 	 * all violations in the text message Based on SPIN, which is based on Jena
 	 * 
 	 * The constraint checking is based on 3 'customized' files (and then other
-	 * SPIN files): - spinTemplateFile: a set of SPIN templates, defined once
-	 * and for all Saved in marmotta-home\EDS\SPIN\Templates\ -
-	 * constraintsFileName: the constraints definition based on the
+	 * SPIN files): 
+	 * - spinTemplateFile: a set of SPIN templates, defined once
+	 * and for all Saved in marmotta-home\EDS\SPIN\Templates\
+	 * the file name is a module's parameter that can be set by the administrator 
+	 * - constraintsFileName: the constraints definition based on the
 	 * "spinTemplateFile", and defined for a specific class (passed as
-	 * parameter) Those files are found in marmotta-home\EDS\SPIN\Constraints -
-	 * rdfDataInputStream: the rdfGraph to be checked (passed as parameter)
+	 * parameter) 
+	 * Those files are found in marmotta-home\EDS\SPIN\Constraints
+	 * and can be selected by the user when adding an EDS 
+	 * - rdfDataInputStream: the rdfGraph to be checked (passed as parameter)
 	 * 
 	 * All those files are joined in a common model, to run the SPIN constraints
 	 * checking
@@ -579,16 +610,7 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 	 */
 
 	public void dataConstraintsValidation(InputStream rdfDataInputStream, String rdfDataFormat, String constraintsFileName) throws ExtDataSourcesException {
-
 		log.debug("data constraints validation with constraintsFile: {}", constraintsFileName);
-
-		if (getConfSpinTemplateFileForceReload()) // the template file should be
-													// reloaded from disk
-		{
-			loadModelSpinTemplatesFromDisk();
-			setConfSpinTemplateFileForceReload(false); // then change back the
-														// value to false
-		}
 
 		if (modelSpinTemplates == null)
 			throw new ExtDataSourcesException("modelSpinTemplates wasn't loaded properly, data constraints validation can't be performed");
@@ -654,6 +676,8 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 	}
 
 	/*
+	 * upload a dataset in the store, from an InputStream
+	 *  
 	 * This code is a copy of ImportClient.uploadDataset() in order to handle
 	 * the HTTP authentication The modification was to add:
 	 * post.setHeader("Authorization", headerAuth);
@@ -662,13 +686,10 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 	 * otherwise errors where not sent back to the user, but only to the logs
 	 * 
 	 * on 31.10.2014, original marmotta code HTTPUtil.getPost() was updated to
-	 * handle http authentication. However no exception is thrown so far, so
-	 * this personalized method is still useful
+	 * handle http authentication based on ClientConfiguration's user/pwd.
+	 * However no exception is thrown so far, so this personalized method is still useful
 	 */
 	public void uploadDataset(String headerAuth, ClientConfiguration config, final InputStream in, final String mimeType) throws IOException, ExtDataSourcesException {
-
-		// Preconditions.checkArgument(acceptableTypes.contains(mimeType));
-
 		HttpClient httpClient = HTTPUtil.createClient(config);
 
 		HttpPost post = null;
@@ -680,10 +701,8 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 
 		post.setHeader("Content-Type", mimeType);
 
-		if (headerAuth != null && !headerAuth.equals("")) // null if marmotta is
-															// configured with
-															// no security
-															// option
+		// null if marmotta is configured with no security option
+		if (headerAuth != null && !headerAuth.equals("")) 
 			post.setHeader("Authorization", headerAuth);
 
 		ContentProducer cp = new ContentProducer() {
@@ -705,12 +724,10 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 				case 412:
 					log.error("mime type {} not acceptable by import service", mimeType);
 					throw new IOException("mime type not acceptable by import service: " + mimeType);
-					// return false;
 				default:
 					log.error("error uploading dataset: {} {}", new Object[] { response.getStatusLine().getStatusCode(),
 							response.getStatusLine().getReasonPhrase() });
 					throw new IOException("error uploading: " + response.getStatusLine().getStatusCode());
-					// return false;
 				}
 			}
 		};
@@ -723,6 +740,5 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 		} finally {
 			post.releaseConnection();
 		}
-
 	}
 }

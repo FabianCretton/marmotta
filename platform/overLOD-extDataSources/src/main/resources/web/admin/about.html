@@ -31,15 +31,17 @@
     External Data Sources (EDS) aims at managing data coming from external sources, as RDF files, RDFa, data from a SPARQL end-point or even non-RDF structured data that needs to be translated to RDF (RDfized) as for instance Microdata from schema.org.
 <p>
 	This feature relies on Marmotta's LDClient library. It differs from the LDCLient/LDCache functionality in the way you can control which data to load in Marmotta.
-	Features (not fully implemented yet) include administrators functionalities to:
+	Features include administrators functionalities to:
 	<ul>
-	<li>Automatically or semi-automatically update data when the original data sources does change. This feature is not fully implemented as there is no standard way for a datasource to publish a time stamp. The current implementation is not fully functional: it keeps a time stamp based on the http header "last-modified" value, and if that value is not set, the "expires" values is used (even if empty, in which case the default 1/1/1970 date will show up). In the futur, it should be possible to properly configure timestamp options for each datasource, and also handle timestamp found in the RDF data itself (for instance GeoNames does publish dcterms:modified values)</li>
+	<li>Automatically or semi-automatically update data when the original data sources does change. This feature is not fully implemented as there is no standard way for a datasource to publish a time stamp. The current implementation keeps a time stamp based on the http header "last-modified" value, and if that value is not set, the "expires" values is used (even if empty, in which case the default 1/1/1970 date will show up). In the future, it should be possible to properly configure timestamp options for each datasource, and also handle timestamp found in the RDF data itself (for instance GeoNames does publish dcterms:modified values)</li>
 	<li>Retrieve only a part of external data. For instance when importing a geoNames "about.rdf", you might not want all labels in all languages, but only specific ones.</li>
-	<li>Control the validity of the data by running specific SPARQL queries, before importing the data in the store</li>
+	<li>Control the validity of the data by running specific SPARQL queries, before importing the data in the store. This feature is based on <a href="http://spinrdf.org/spin.html">SPIN</a>.</li>
 	</ul>	
 <p>
 		To manage the update of such external data sources effectively, each source must correspond to a specific graph (context) in Marmotta. When creating a new EDS, you thus need to specify a new and non-existing context for it.
-		When an EDS is updated, that context will be cleared and data re-imported. But be warned that the standard Marmotta's 'Context' page is not aware of the EDS module: it does show all the existing contexts without notifying if it does belong to an EDS or not.
+		When an EDS is updated, that context will be cleared and data re-imported. But be warned that the standard Marmotta's 'Context' page is not aware of the EDS module: it does show all the existing contexts without notifying if it does belong to an EDS or not. As Marmotta gives a label to a context by extracting the last part of its URL, you could design specific labels prefixes to identify the contexts used for EDS.
+<p>
+	EDS parameters are read only. To change the parameters, you need to delete the current EDS and create a new one.
 <p>
 		The current demonstrator only handles RDF files from their URL as <span style="font-family: consolas, arial;">http://www.w3.org/People/Berners-Lee/card.rdf</span>,
 		<br>and linked data resources as <span style="font-family: consolas, arial;">http://dbpedia.org/resource/Geneva</span>.

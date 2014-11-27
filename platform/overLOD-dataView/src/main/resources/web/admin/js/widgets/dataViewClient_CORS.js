@@ -2,14 +2,13 @@
  * Creates a DataView object to access the Web Service
  * Based on JQuery 1.8
  * This version is based on CORS to do cross-domain calls with http authentication
- * The user/pwd are set in the 'credentials' variable, in the form "user:pwd"
+ * The user/pwd are passed in the 'credentials' parameter, in the form "user:pwd"
  *
  * Author: Fabian Cretton - OverLOD Project - HES-SO Valais
  * @param url The basic URL where Marmotta runs
  */
-function DataView(url) {
-		var credentials = "admin:pass123" ;
-		var encodedCredentials = Base64.encode(credentials) ;
+function DataView(url, credentials) {
+	var encodedCredentials = Base64.encode(credentials) ;
 		
     if( url==undefined) throw "url must be defined"; //test if url is defined
     if( url.lastIndexOf("/")==url.length-1) url=url.substring(0,url.length-1); //clean url

@@ -64,16 +64,26 @@ import ch.hevs.overLOD.dataView.exceptions.DataViewException;
 /**
  * Web Service for DataViews management
  * 
+ * DataViews are predefined SPARQL queries saved on disk.
+ * An administrator familiar with RDF and SPARQL can define and save the queries.
+ * A developper who needs data can just get the results of a DataView by calling the service with the name of 
+ * that DataView and the expected result format: JSON, CSV, XML
+ * 
+ * It is possible to track DataView calls with Google Analytics
+ * 	depending on the module's configuration
+ *  And thus know how data are effectively used by applications
+ *  
+ * As a user, see the module's about.html for more information 
+ *  
  * @author Fabian Cretton, HES-SO OverLOD surfer project
+ * http://www.hevs.ch/fr/rad-instituts/institut-informatique-de-gestion/projets/overlod-surfer-6349
  */
 @Path("/dataView")
 @ApplicationScoped
 public class DataViewWebService {
 
-    //@Inject
-    // private Logger log;
-	// I don't know why, but it seems that an Inject here will not work, to be investigated
-    private Logger log = org.slf4j.LoggerFactory.getLogger(this.getClass());
+    @Inject
+    private Logger log;
 
     @Inject
     private DataView dataViewService;
@@ -83,8 +93,6 @@ public class DataViewWebService {
     
     @Context
     UriInfo uri ;
-    
-    // private ClientConfiguration clientConfig;
     
     private static final String URL_QUERY_SERVICE  = "/sparql/select";
 
@@ -96,10 +104,11 @@ public class DataViewWebService {
      *  http://www.w3.org/ns/formats/data/SPARQL_Results_JSON
      *  
      *  header - "Authorization": When Marmotta is in a secure mode, http authentication is used with user/pwd information
-     *		This information is then needed to call the other web service
-     * 		Setting the user/password inside the ClientConfiguration() seems of no use as those information
-     * 		are not handled by the HttpUtils methods, and anyway this information has to be set on the
-     * 		GET object, not on the HttpClient     */
+     *		This information is then needed to call the other web services
+     *		At the time of writing this class, Marmotta's code for the ClientConfiguration() 
+     *		did not take the usr/pwd properly into account.
+     *		Hence the current solution used here.
+     */
 
     /**
      * Get data from a predefined DataView (a predefined query)
@@ -123,7 +132,6 @@ public class DataViewWebService {
         if (GoogleAnalyticsTrackingID != null)
         {
         	GoogleAnalytics ga = new GoogleAnalytics(GoogleAnalyticsTrackingID) ;
-        	//ga.post(new PageViewHit(uri.getBaseUri().toString()+"dataView?viewName=" + viewName, "test"));
         	ga.post(new PageViewHit("dataView?viewName=" + viewName, "test"));
         	log.debug("new PageViewHit for GoogleAnalytics, with trackingId:"+ GoogleAnalyticsTrackingID) ;
         }
@@ -134,7 +142,6 @@ public class DataViewWebService {
         	{	
         	if (StringUtils.isEmpty(mimeTypeAsParam)) {
 	            log.warn("No mimetype specified");
-	            // No name given? Invalid request.
 	            return Response.status(Status.BAD_REQUEST).entity("Missing header 'Accept' or parameter 'format'").build();
 	        	}
         	else
@@ -143,7 +150,6 @@ public class DataViewWebService {
         
         if (StringUtils.isEmpty(viewName)) {
             log.warn("No view specified");
-            // No name given? Invalid request.
             return Response.status(Status.BAD_REQUEST).entity("Missing Parameter 'viewName'").build();
         }
         
@@ -158,9 +164,9 @@ public class DataViewWebService {
 		}
 
         // Dynamically read if there is any parameter for the SPARQL query
-        // they are identified as they should start with "p_"
-        // those parameters are predefined 'string' in the .sparql query file
-        // and so far, a simple replace() will be done with the specific value
+        // They are identified as they should start with "p_"
+        // Those parameters are predefined 'string' in the .sparql query file
+        // and so far, a simple replace() is done with the given value
         MultivaluedMap<String, String> queryParams = uriInfo.getQueryParameters(); 
         Iterator<String> it = queryParams.keySet().iterator();
 
@@ -171,12 +177,11 @@ public class DataViewWebService {
 			try {
 				query = query.replace(paramName, URLDecoder.decode(queryParams.getFirst(paramName), "UTF-8")) ;
 			} catch (UnsupportedEncodingException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+	            return Response.status(Status.BAD_REQUEST).entity("An error occured while replacing the parameters in the query: " + e.getMessage()).build();
 			}
         }
 
-        log.debug("final query:" + query) ;
+       log.debug("final query:" + query) ;
         
        return getDataViewImpl(headerAuth, mimeType, query) ;
     }
@@ -197,13 +202,11 @@ public class DataViewWebService {
         
         if (StringUtils.isEmpty(viewName)) {
             log.warn("No viewName specified");
-            // No name given? Invalid request.
             return Response.status(Status.BAD_REQUEST).entity("Missing Parameter 'viewName'").build();
         }
 
         if (StringUtils.isEmpty(query)) {
             log.warn("No query specified");
-            // No name given? Invalid request.
             return Response.status(Status.BAD_REQUEST).entity("Missing Parameter 'query'").build();
         }
 
@@ -235,13 +238,11 @@ public class DataViewWebService {
     	
         if (StringUtils.isEmpty(viewName)) {
             log.warn("No view specified");
-            // No name given? Invalid request.
             return Response.status(Status.BAD_REQUEST).entity("Missing Parameter 'viewName'").build();
         }
 
         if (StringUtils.isEmpty(query)) {
             log.warn("No query specified");
-            // No name given? Invalid request.
             return Response.status(Status.BAD_REQUEST).entity("Missing Parameter 'query'").build();
         }
 
@@ -273,7 +274,6 @@ public class DataViewWebService {
         
         if (StringUtils.isEmpty(viewName)) {
             log.warn("No viewName specified");
-            // No name given? Invalid request.
             return Response.status(Status.BAD_REQUEST).entity("Missing Parameter 'viewName'").build();
         }
 
@@ -303,14 +303,10 @@ public class DataViewWebService {
     public Response getDataViewQuery(@QueryParam("viewName") String viewName) {
         if (StringUtils.isEmpty(viewName)) {
             log.warn("No view specified");
-            // No name given? Invalid request.
             return Response.status(Status.BAD_REQUEST).entity("Missing Parameter 'viewName'").build();
         }
         
         log.debug("Requesting DataView Query: {}", viewName);
-        
-    	// create a client configuration with the current WS uri's
-        // ClientConfiguration clientConfig = new ClientConfiguration(uri.getBaseUri().toString()) ;
         
         String query = null ;
         
@@ -324,41 +320,9 @@ public class DataViewWebService {
         
        return Response.ok(query).build(); 
     }    
-    /*
-     * Read the SPARQL query corresponding to a viewName and return the string
-     * 
-     * MOVED TO dataViewImpl
-     */
-    /*
-    public String readDataViewQuery(String viewName) throws IOException
-    {
-    String query = null ;
-    String queryFile = configurationService.getHome() + File.separator + "dataViews" + File.separator + viewName + ".sparql" ;
-
-    // Read the .sparql file
-    FileInputStream inputStream = null;
-    
-		try {
-			inputStream = new FileInputStream(queryFile);
-			query = IOUtils.toString(inputStream);
-		} catch (IOException e) {
-			log.error("DataView - accessing " + queryFile + " exception:" + e.getMessage());
-			throw(e) ;
-		} finally {
-			try {
-				if (inputStream != null)
-					inputStream.close();
-			} catch (IOException e) {
-				log.error("DataView - closing " + queryFile + " exception:" + e.getMessage());
-			}
-		}
-		
-		return query ;
-    }
-    */
     
     /*
-     * actual implementation of getDataView
+     * Actual implementation of getDataView
      * to return the result of the SPARQL query associated to the DataView
      */
     public Response getDataViewImpl(String headerAuth, String acceptMimeType, String query) {
@@ -396,46 +360,8 @@ public class DataViewWebService {
             	{
             	case 200:
             		log.debug("SPARQL Query {} evaluated successfully",query);
-            		// Trials to send back the response directly:
-            		// this throws an exception: java.net.SocketException: socket closed
-            		//return Response.ok(response.getEntity().getContent()).build();
-            		// this returns a "org.apache.http.conn.EofSensorInputStream@a0c514a"
-            		//return Response.ok(response.getEntity().getContent().toString()).build();
             		
-            		// Get the response's Text, and send it back in a new response object
-            		
-            		/* Do the copy manually line by line
-            		HttpEntity entity = response.getEntity();
-            		
-            		// open question: is it correct that the CSV/TSV result needs a lineSeparator, but not the other ones ?
-            		// answer after testing the IOUtils code here under: no, the new line is there for any format and thus should be added anyway
-            		//boolean addLineSeparator = acceptMimeType.equals(TupleQueryResultFormat.CSV.getDefaultMIMEType()) || acceptMimeType.equals(TupleQueryResultFormat.TSV.getDefaultMIMEType()) ;
-            		
-            		StringBuilder sb = new StringBuilder();
-            		try {
-            		    BufferedReader reader = new BufferedReader(new InputStreamReader(entity.getContent()), 65728);
-            		    String line = null;
-
-            		    line = reader.readLine() ;
-            		    
-            		    while (line != null) {
-            		        sb.append(line);
-            		        
-            		        line = reader.readLine();
-            		        
-            		        // if (addLineSeparator && line != null)
-            		        if (line != null)
-            		        	sb.append(System.lineSeparator());
-            		    }
-            		}
-            		catch (Exception e) {
-            			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("error reading the SPARQL result InputStream: '" + e.getMessage() +"'").build();
-            			}
-            		
-            		return Response.ok(sb.toString()).build();
-            		*/
-            		
-            		// can we assume that the format is UTF-8 ?
+            		// assuming that the format is UTF-8
             		return Response.ok(IOUtils.toString(response.getEntity().getContent(), "UTF-8")).build();
             		
         		default:
@@ -473,79 +399,6 @@ public class DataViewWebService {
         return getDataViewImpl(headerAuth, acceptMimeType, query) ;
     }
     
-    /*
-     * A trial to avoid copying the return from HTTPResponse to a new object
-     * Code inspired by http://www.hascode.com/2013/12/jax-rs-2-0-rest-client-features-by-example/
-     * But I couldn't make it work.
-     * The invoke() and return are done (status 200 - ok), but the client is still waiting for a while, and then
-     * displays the "success" but with no content
-     * 
-     * The ClientBuilder requires dependency such as:
-		<dependency>
-			<groupId>org.glassfish.jersey.core</groupId>
-			<artifactId>jersey-client</artifactId>
-			<version>2.12</version>
-		</dependency>
-		
-     *   otherwise a classNotFound is thrown
-    public Response getDataView_JAX_RS_Trial(@HeaderParam("Accept") String acceptMimeType, @QueryParam("viewName") String viewName) {
-        if (StringUtils.isEmpty(viewName)) {
-            log.warn("No view specified");
-            // No name given? Invalid request.
-            return Response.status(Status.BAD_REQUEST).entity("Missing Parameter 'viewName'").build();
-        }
-
-        log.debug("Requesting DataView: {}", viewName);
-        
-    	// create a client configuration with the current WS uri's
-        clientConfig = new ClientConfiguration(uri.getBaseUri().toString()) ;
-        
-        String query = null ; // "SELECT ?s ?p WHERE {?s ?p ?o}" ; //  LIMIT 10" ;
-        
-        String queryFile = configurationService.getHome() + File.separator + "dataViews" + File.separator + viewName + ".sparql" ;
-
-        // Read the .sparql file
-        FileInputStream inputStream = null;
-        try {
-			inputStream = new FileInputStream(queryFile);
-            query = IOUtils.toString(inputStream);
-        } catch (IOException e) {
-			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error while reading the query file corresponding to the view '"+viewName+" (" + queryFile + "): "  + e.getMessage()).build();
-		} finally {
-            try {
-            	if (inputStream != null)
-            		inputStream.close();
-			} catch (IOException e) {
-				return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error while closing the query file corresponding to the view '"+viewName+" (" + queryFile + "): "  + e.getMessage()).build();
-			}
-        }        
-        
-        System.out.println("av new Client") ;
-        Client client = ClientBuilder.newClient() ;
-        System.out.println("ap new Client") ;
-        Invocation sparqlClient = null ;
-        
-		try {
-			
-	        System.out.println("create client: "+clientConfig.getMarmottaUri() + URL_QUERY_SERVICE + "?query=" + URLEncoder.encode(query, "utf-8")) ;
-	        
-	        sparqlClient = client.target(clientConfig.getMarmottaUri() + URL_QUERY_SERVICE + "?query=" + URLEncoder.encode(query, "utf-8")).request().header("Accept", acceptMimeType).buildGet() ;
-	        //sparqlClient = client.target(clientConfig.getMarmottaUri() + URL_QUERY_SERVICE + "?query=" + URLEncoder.encode(query, "utf-8")).request(acceptMimeType).buildGet() ;
-		} catch (UnsupportedEncodingException e1) {
-            log.error("could not encode query {} as parameter - exception: {}",query, e1.getMessage());
-			return Response.status(Status.INTERNAL_SERVER_ERROR).entity("could not encode query '"+query+"' as parameter - exception: " + e1.getMessage()).build();
-		}
-
-		
-		System.out.println("invoke!!") ;
-		Response respSparqlClient = sparqlClient.invoke() ;
-		System.out.println("response status:"+respSparqlClient.getStatus()) ;
-		return Response.fromResponse(respSparqlClient).build() ;
-		// also tried 
-		// return respSparqlClient ;
-    }
-         */
-
     /**
      * Get the list of configured Data views
      * @return Return a Array of string that is the list of the names of the existing data views
