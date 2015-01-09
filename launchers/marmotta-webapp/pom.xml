@@ -22,7 +22,7 @@
     <parent>
         <groupId>org.apache.marmotta</groupId>
         <artifactId>marmotta-parent</artifactId>
-        <version>3.3.0-SNAPSHOT</version>
+        <version>3.3.0</version>
         <relativePath>../../parent</relativePath>
     </parent>
 
@@ -442,6 +442,22 @@
                         </executions>
                     </plugin>
                 </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>installer</id>
+            <build>
+                <pluginManagement>
+                    <plugins>
+                        <plugin>
+                            <!-- The marmotta-installer requires the war to be installed in the local repo -->
+                            <artifactId>maven-install-plugin</artifactId>
+                            <configuration>
+                                <skip>false</skip>
+                            </configuration>
+                        </plugin>
+                    </plugins>
+                </pluginManagement>
             </build>
         </profile>
     </profiles>
