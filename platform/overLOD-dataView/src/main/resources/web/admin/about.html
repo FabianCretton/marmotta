@@ -27,8 +27,18 @@
 <!--###BEGIN_CONTENT###-->
 <h1><a id="Introduction"></a>Data View - OverLOD Surfer<a class="section_anchor" href="#Introduction"></a></h1>
 
+<h2>OverLOD Surfer Introduction</h2> 
+	The primary goal of OverLOD Surfer is to enable the management of a server of RDF data, in a distributed data environment, making data available for the specific front-end applications. Programmers of the applications don't need to know about RDF.
+	When discovering about Apache Marmotta, building OverLOD on top of it became an obvious choice as many functionalities already exist in Marmotta, and other ones could be developped as Marmotta's modules.
+	Administrators choose which data to store locally, for efficiency as well as data control purpose. This architecture needs to handle automatic update of the local data when the original data is updated, possibility to import only a subset of the original data and perform data validation before the import. This is handled by the "External Data Sources" module.  
+	Administrators then design SPARQL queries that programmers of the front-end applications can simply call by their names to get data in format they are familiar with (JSON, CSV, etc.). This is handled by the "Data View" module.  
+	Last but not least, building OverLOD on top of Marmotta allows programmers who are familiar with RDF to freely query the store with SPARQL queries, LDPath, and also benefit from features which are not yet specifically needed by OverLOD as LDP or other upcoming features.
 <p>
+	The current implementation is based on Marmotta 3.3.0 (hence the 3.3.0 version number of OverLOD modules). It is a demonstrator and by no means a "ready to use" product.
+<h2>Data View module</h2>
     Data Views are predefined queries (SPARQL), designed by administrators, that will allow developers to request data in common formats (JSON, CSV, etc.) without the need to understand the underlying RDF format and ontologies.
+<p>
+This feature could also be used as a way to save/store SPARQL queries.	
 <p>
 	Developpers can get the results by doing a GET on the /dataView web service:
 	<pre>GET /dataView?viewName=&lt;viewName&gt;&amp;format=application/sparql-results+json</pre>
@@ -49,7 +59,7 @@
 	Javascript example using the DataViewClient, and including a "p_areaURI" URL parameter:  
 	<pre>&nbsp;&nbsp;&nbsp;var queryParams = {p_areaURI:encodeURIComponent("http://dbpedia.org/resource/Geneva"), p_year:"2002"};<BR>&nbsp;&nbsp;&nbsp;dataViewClient.getDataView('aDataViewWithAreaAndYearParameters', queryParams,"text/csv", success, failure) ;</pre>
 <p>
-	This module is developed by the HES-SO Valais-Wallis, <a href="http://www.hevs.ch/fr/rad-instituts/institut-informatique-de-gestion/">Institut Informatique de Gestion</a> in Switzerland, as part of the OverLOD Surfer project.
+	This module is developed by the HES-SO Valais-Wallis, <a href="http://www.hevs.ch/fr/rad-instituts/institut-informatique-de-gestion/">Institut Informatique de Gestion</a> in Switzerland, as part of the <a href="http://www.hevs.ch/fr/rad-instituts/institut-informatique-de-gestion/projets/overlod-surfer-6349">OverLOD Surfer project</a>.
 	
 </p>
 

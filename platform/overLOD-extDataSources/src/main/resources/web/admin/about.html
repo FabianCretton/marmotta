@@ -27,26 +27,41 @@
 <!--###BEGIN_CONTENT###-->
 <h1><a id="Introduction"></a>External Data Sources - OverLOD Referencer<a class="section_anchor" href="#Introduction"></a></h1>
 
+<h2>OverLOD Surfer Introduction</h2> 
+	The primary goal of OverLOD Surfer is to enable the management of a server of RDF data, in a distributed data environment, making data available for the specific front-end applications. Programmers of the applications don't need to know about RDF.
+	When discovering about Apache Marmotta, building OverLOD on top of it became an obvious choice as many functionalities already exist in Marmotta, and other ones could be developped as Marmotta's modules.
+	Administrators choose which data to store locally, for efficiency as well as data control purpose. This architecture needs to handle automatic update of the local data when the original data is updated, possibility to import only a subset of the original data and perform data validation before the import. This is handled by the "External Data Sources" module.  
+	Administrators then design SPARQL queries that programmers of the front-end applications can simply call by their names to get data in format they are familiar with (JSON, CSV, etc.). This is handled by the "Data View" module.  
+	Last but not least, building OverLOD on top of Marmotta allows programmers who are familiar with RDF to freely query the store with SPARQL queries, LDPath, and also benefit from features which are not yet specifically needed by OverLOD as LDP or other upcoming features.
 <p>
+	The current implementation is based on Marmotta 3.3.0 (hence the 3.3.0 version number of OverLOD modules). It is a demonstrator and by no means a "ready to use" product.
+<h2>External Data Sources module</h2>
     External Data Sources (EDS) aims at managing data coming from external sources, as RDF files, RDFa, data from a SPARQL end-point or even non-RDF structured data that needs to be translated to RDF (RDfized) as for instance Microdata from schema.org.
 <p>
 	This feature relies on Marmotta's LDClient library. It differs from the LDCLient/LDCache functionality in the way you can control which data to load in Marmotta.
 	Features include administrators functionalities to:
 	<ul>
 	<li>Automatically or semi-automatically update data when the original data sources does change. This feature is not fully implemented as there is no standard way for a datasource to publish a time stamp. The current implementation keeps a time stamp based on the http header "last-modified" value, and if that value is not set, the "expires" values is used (even if empty, in which case the default 1/1/1970 date will show up). In the future, it should be possible to properly configure timestamp options for each datasource, and also handle timestamp found in the RDF data itself (for instance GeoNames does publish dcterms:modified values)</li>
-	<li>Retrieve only a part of external data. For instance when importing a geoNames "about.rdf", you might not want all labels in all languages, but only specific ones.</li>
-	<li>Control the validity of the data by running specific SPARQL queries, before importing the data in the store. This feature is based on <a href="http://spinrdf.org/spin.html">SPIN</a>.</li>
+	<li>Data filter: retrieve only a part of external data. For instance when importing a geoNames "about.rdf", you might not want all labels in all languages, but only specific ones. The "Data filter" drop-down list allows choosing an existing file which is a SPARQL CONSTRUCT to extract only part of the imported data. There is currently no interface to edit those files, they must be placed in %marmotta-home%\EDS\EDSFilters.</li>
+	<li>Data validator: control the validity of the data by running specific SPARQL queries, before importing the data in the store. This feature is based on <a href="http://spinrdf.org/spin.html">SPIN</a>. The "Data control" drop-down list allows choosing an existing file. There is currently no interface to edit those files, they must be placed in %marmotta-home%\EDS\SPIN\Constraints.</li>
 	</ul>	
 <p>
 		To manage the update of such external data sources effectively, each source must correspond to a specific graph (context) in Marmotta. When creating a new EDS, you thus need to specify a new and non-existing context for it.
 		When an EDS is updated, that context will be cleared and data re-imported. But be warned that the standard Marmotta's 'Context' page is not aware of the EDS module: it does show all the existing contexts without notifying if it does belong to an EDS or not. As Marmotta gives a label to a context by extracting the last part of its URL, you could design specific labels prefixes to identify the contexts used for EDS.
 <p>
+	Referencer example for a Linked Data Source: 
+	<pre>&nbsp;URL: http://dbpedia.org/resource/Martigny<BR>&nbsp;Data filter: DBPedia_municipality_filter.sparql<BR>&nbsp;Data control: DBPedia_municipality_constraints.spin.ttl</pre>
+	By using a filter, not all data available for the resource will be loaded, but only the municipality with its canton, country and elevation, and its labels in french and english. The data control will make sure that only one canton, one country and one elevation are given, and that the labels in french and english do exist.
+<p>
+
 	EDS parameters are read only. To change the parameters, you need to delete the current EDS and create a new one.
 <p>
 		The current demonstrator only handles RDF files from their URL as <span style="font-family: consolas, arial;">http://www.w3.org/People/Berners-Lee/card.rdf</span>,
 		<br>and linked data resources as <span style="font-family: consolas, arial;">http://dbpedia.org/resource/Geneva</span>.
 <p>
-		This module is developed by the HES-SO Valais-Wallis, <a href="http://www.hevs.ch/fr/rad-instituts/institut-informatique-de-gestion/">Institut Informatique de Gestion</a> in Switzerland, as part of the OverLOD Surfer project.
+	To be noted that for the RDF Files import to work properly, the original "ldclient-provider-rdf-3.3.0.jar" must be replaced by the one distributed with the overLOD modules, in order to import triples where the subject don't necessarily correspond to file's URL.
+<p>
+		This module is developed by the HES-SO Valais-Wallis, <a href="http://www.hevs.ch/fr/rad-instituts/institut-informatique-de-gestion/">Institut Informatique de Gestion</a> in Switzerland, as part of the <a href="http://www.hevs.ch/fr/rad-instituts/institut-informatique-de-gestion/projets/overlod-surfer-6349">OverLOD Surfer project</a>.
 </p>
 
 <!--###END_CONTENT###-->
