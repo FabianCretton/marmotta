@@ -64,7 +64,7 @@ function EDSEditor(id, listEditor, host) {
 
 		// Import an RDF File interface
 		divChooseEDSType.append($("<a class='import_type' ></a>").text("RDF file (URL)").click(function () {
-				buildEDSEditionGUI("RDFFile", "http://www.websemantique.ch/people/rdf/fabiancretton.rdf");
+				buildEDSEditionGUI("RDFFile", "http://dig.csail.mit.edu/2008/webdav/timbl/foaf.rdf");
 			}));
 
 		divChooseEDSType.append("<span>|</span>");

@@ -11,7 +11,7 @@ When discovering about Apache Marmotta, building OverLOD on top of it became an 
 Administrators choose which data to store locally, for efficiency as well as data control purpose. This architecture needs to handle:
 - automatic update of the local data when the original data is updated 
 - possibility to import only a subset of the original data 
-- perform data validation before the import. 
+- perform data validation before the import 
 This is handled by the "External Data Sources" module.  
 
 Administrators then design SPARQL queries that programmers of the front-end applications can simply call by their names to get data in format they are familiar with (JSON, CSV, etc.). This is handled by the "Data View" module.  
@@ -26,4 +26,7 @@ to be completed...
 
 
 
-These modules are developed by the HES-SO Valais-Wallis, Institut Informatique de Gestion in Switzerland (http://www.hevs.ch/fr/rad-instituts/institut-informatique-de-gestion/) as part of the OverLOD Surfer project (http://www.hevs.ch/fr/rad-instituts/institut-informatique-de-gestion/projets/overlod-surfer-6349). 
+These modules are developed by the HES-SO Valais-Wallis, Institut Informatique de Gestion in Switzerland [1]  as part of the OverLOD Surfer project [2]. 
+
+[1] http://www.hevs.ch/fr/rad-instituts/institut-informatique-de-gestion/
+[2] http://www.hevs.ch/fr/rad-instituts/institut-informatique-de-gestion/projets/overlod-surfer-6349
