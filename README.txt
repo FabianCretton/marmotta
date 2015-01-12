@@ -18,7 +18,7 @@ Administrators then design SPARQL queries that programmers of the front-end appl
 
 Last but not least, building OverLOD on top of Marmotta allows programmers who are familiar with RDF to freely query the store with SPARQL queries, LDPath, and also benefit from features which are not yet specifically needed by OverLOD as LDP or other upcoming features.
 
-The current implementation is based on Marmotta 3.3.0 (hence the 3.3.0 version number of OverLOD modules). It is a demonstrator and by no means a "ready to use" product.
+The current implementation is based on Marmotta 3.3.0 (hence the 3.3.0 version number of OverLOD modules). It is a demonstrator and not a "ready to use" product.
 
 
 
