@@ -26,7 +26,7 @@ to be completed...
 
 
 
-These modules are developed by the HES-SO Valais-Wallis, Institut Informatique de Gestion in Switzerland [1]  as part of the OverLOD Surfer project [2]. 
+These modules are developed by the HES-SO Valais-Wallis, Institut Informatique de Gestion in Switzerland [1] as part of the OverLOD Surfer project [2]. 
 
 [1] http://www.hevs.ch/fr/rad-instituts/institut-informatique-de-gestion/
 [2] http://www.hevs.ch/fr/rad-instituts/institut-informatique-de-gestion/projets/overlod-surfer-6349
