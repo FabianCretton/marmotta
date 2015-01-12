@@ -64,14 +64,14 @@ function EDSEditor(id, listEditor, host) {
 
 		// Import an RDF File interface
 		divChooseEDSType.append($("<a class='import_type' ></a>").text("RDF file (URL)").click(function () {
-				buildEDSEditionGUI("RDFFile", "http://dig.csail.mit.edu/2008/webdav/timbl/foaf.rdf");
+				buildEDSEditionGUI("RDFFile", "http://www.w3.org/People/Berners-Lee/card.rdf");
 			}));
 
 		divChooseEDSType.append("<span>|</span>");
 
 		// Import a Linked Data Resource
 		divChooseEDSType.append($("<a class='import_type' ></a>").text("Linked Data Resource").click(function () {
-				buildEDSEditionGUI("LinkedData", "http://dbpedia.org/resource/Martigny");
+				buildEDSEditionGUI("LinkedData", "http://dbpedia.org/resource/Geneva");
 			}));
 	}
 
