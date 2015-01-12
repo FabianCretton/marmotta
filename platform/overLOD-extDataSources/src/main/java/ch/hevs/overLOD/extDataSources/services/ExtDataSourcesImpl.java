@@ -224,7 +224,12 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 	 */
 	@Override
     public ArrayList<String> getDataFiltersList() throws ExtDataSourcesException{
+		try
+		{
 		return getFolderFilesList(EDSFiltersFolder) ;
+		} catch (Exception e) {
+		throw new ExtDataSourcesException("Sever Server installation error - The \"%Marmotta-Home&/EDS/EDSFilters\" folder or its content can't be read!");
+		}   
 	}
 	
 	/*
@@ -234,27 +239,38 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 	@Override
     public ArrayList<String> getDataValidatorsList() throws ExtDataSourcesException
     {
-		return getFolderFilesList(spinConstraintsFolder) ;
+		try
+		{
+			return getFolderFilesList(spinConstraintsFolder) ;
+		} catch (Exception e) {
+		throw new ExtDataSourcesException("Sever Server installation error - The \"%Marmotta-Home&/EDS/SPIN/Constraints\" folder or its content can't be read!");
+		}  
     }
 
 	/**
 	 * Get the list of files found in a folder
 	 * @param folderPath the folder to be listed
 	 * @return
+	 * @throws ExtDataSourcesException 
 	 */
-	public ArrayList<String> getFolderFilesList(String folderPath)
+	public ArrayList<String> getFolderFilesList(String folderPath) throws ExtDataSourcesException
 	{
     	ArrayList<String> filesList = new ArrayList<String>() ;
 
-        File folder = new File(folderPath);
+		try {
+	        File folder = new File(folderPath);
 
-        File[] listOfFiles = folder.listFiles(); 
-       
-        for (int i = 0; i < listOfFiles.length; i++) 
-			 if (listOfFiles[i].isFile()) 
-				 filesList.add(listOfFiles[i].getName()) ;
+	        File[] listOfFiles = folder.listFiles(); 
+	       
+	        for (int i = 0; i < listOfFiles.length; i++) 
+				 if (listOfFiles[i].isFile()) 
+					 filesList.add(listOfFiles[i].getName()) ;
 
-    	return filesList ;
+	    	return filesList ;
+		} catch (Exception e) {
+			log.error("Sever Server installation error - the following folder can't be found : " + e.getMessage());
+			throw new ExtDataSourcesException("Sever Server installation error - the following folder can't be found : " + e.getMessage());
+		}    	
 	}
 	
 	/*
@@ -371,6 +387,7 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 			inputStream.close();
 		} catch (Exception e) {
 			modelSpinTemplates = null;
+			log.error("EDS Constraints template file can't be loaded from disk: " + e.getMessage());
 			throw new ExtDataSourcesException("EDS Constraints template file can't be loaded from disk: " + e.getMessage());
 		}
 
