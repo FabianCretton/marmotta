@@ -1,0 +1,60 @@
+@prefix oslc: <http://open-services.net/ns/core#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sp: <http://spinrdf.org/sp#> .
+@prefix spin: <http://spinrdf.org/spin#> .
+@prefix spl: <http://spinrdf.org/spl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/>.
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix rel: <http://purl.org/vocab/relationship/> .
+@prefix overLOD-constraints: <http://www.websemantique.ch/overLOD/SPIN_constraints/> .
+
+# Constraints/Shapes definitions ----------------------------------------------
+overLOD-constraints:foaf-titled-allowed-values rdf:type oslc:AllowedValues ;
+  oslc:allowedValue "Mister"^^xsd:string ;
+  oslc:allowedValue "Mm"^^xsd:string ;
+  oslc:allowedValue "M."^^xsd:string ;
+  rdfs:label "foaf-titled-allowed-values"^^xsd:string .
+
+# attributing constraints to the foaf:Person class
+foaf:Person spin:constraint overLOD-constraints:foaf-currentProject,
+overLOD-constraints:foaf-title,
+overLOD-constraints:foaf-worksWith,
+overLOD-constraints:family_name_maxSize,
+overLOD-constraints:foaf_name_lang_en,
+overLOD-constraints:foaf_name_lang_fr
+.
+
+overLOD-constraints:foaf-title rdf:type oslc:Property ;
+  oslc:allowedValues overLOD-constraints:foaf-titled-allowed-values ;
+  oslc:name "title"^^xsd:string ;
+  oslc:occurs oslc:Zero-or-one ;
+  oslc:propertyDefinition foaf:title .
+  
+overLOD-constraints:foaf-currentProject rdf:type oslc:Property ;
+  oslc:name "currentProject"^^xsd:string ;
+  oslc:occurs oslc:Zero-or-one ;
+  oslc:propertyDefinition foaf:currentProject .
+  
+overLOD-constraints:foaf-worksWith rdf:type oslc:Property ;
+  oslc:name "worksWith"^^xsd:string ;
+  oslc:range foaf:Person;
+  oslc:propertyDefinition rel:worksWith .
+
+overLOD-constraints:family_name_maxSize rdf:type oslc:Property ;
+  oslc:name "family name max size"^^xsd:string ;
+  oslc:maxSize 5;
+  oslc:propertyDefinition foaf:family_name .  
+  
+overLOD-constraints:foaf_name_lang_en rdf:type oslc:Property ;
+  oslc:name "foaf name in english"^^xsd:string ;
+  oslc:lngTag "en";
+  oslc:propertyDefinition foaf:name .  
+  
+overLOD-constraints:foaf_name_lang_fr rdf:type oslc:Property ;
+  oslc:name "foaf name in french"^^xsd:string ;
+  oslc:lngTag "fr";
+  oslc:propertyDefinition foaf:name .  
+  

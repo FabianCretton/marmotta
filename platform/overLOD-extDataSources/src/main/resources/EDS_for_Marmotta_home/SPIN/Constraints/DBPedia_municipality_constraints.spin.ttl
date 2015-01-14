@@ -1,0 +1,46 @@
+@prefix oslc: <http://open-services.net/ns/core#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sp: <http://spinrdf.org/sp#> .
+@prefix spin: <http://spinrdf.org/spin#> .
+@prefix spl: <http://spinrdf.org/spl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dbpedia-onto: <http://dbpedia.org/ontology/>
+@prefix overLOD-constraints: <http://www.websemantique.ch/overLOD/SPIN_constraints/> .
+
+# Constraints/Shapes definitions ----------------------------------------------
+# attributing constraints to the dbpedia-onto:Settlement class
+dbpedia-onto:Settlement spin:constraint overLOD-constraints:dbpedia_canton,
+overLOD-constraints:dbpedia_country,
+overLOD-constraints:dbpedia_elevation,
+overLOD-constraints:label_en,
+overLOD-constraints:label_fr
+.
+
+ 
+overLOD-constraints:dbpedia_canton rdf:type oslc:Property ;
+  oslc:name "in one Canton"^^xsd:string ;
+  oslc:occurs oslc:Exactly-one ;
+  oslc:propertyDefinition dbpedia-onto:canton .
+
+overLOD-constraints:dbpedia_country rdf:type oslc:Property ;
+  oslc:name "in one Country"^^xsd:string ;
+  oslc:occurs oslc:Exactly-one ;
+  oslc:propertyDefinition dbpedia-onto:country .
+  
+overLOD-constraints:dbpedia_elevation rdf:type oslc:Property ;
+  oslc:name "has one elevation"^^xsd:string ;
+  oslc:occurs oslc:Exactly-one ;
+  oslc:propertyDefinition dbpedia-onto:elevation .
+ 
+overLOD-constraints:label_en rdf:type oslc:Property ;
+  oslc:name "label in english"^^xsd:string ;
+  oslc:lngTag "en";
+  oslc:propertyDefinition rdfs:label .  
+  
+overLOD-constraints:label_fr rdf:type oslc:Property ;
+  oslc:name "label in french"^^xsd:string ;
+  oslc:lngTag "fr";
+  oslc:propertyDefinition rdfs:label .  
+  

@@ -57,7 +57,11 @@
 	<BR><BR>
 	Add a reference to a Linked Data Resource: 
 	<pre>&nbsp;URL: http://dbpedia.org/resource/Geneva<BR>&nbsp;Data filter: DBPedia_municipality_filter.sparql<BR>&nbsp;Data validator: DBPedia_municipality_constraints.spin.ttl</pre>
-	By using a filter, not all data available for the resource will be loaded, but only the municipality with its canton, country and elevation, and its labels in french and english. The data control will make sure that only one canton, one country and one elevation are given, and that the labels in french and english are provided.
+	By using a filter, not all data available for the resource will be loaded, but only the municipality with its canton, country and elevation, and its labels in french and english. The data validator will control that only one canton, one country and one elevation are given, and that the labels in french and english are provided.
+	<BR><BR>
+	Test a dummy example with constraints checking that fails:
+	<pre>&nbsp;URL: http://www.w3.org/People/Berners-Lee/card.rdf<BR>&nbsp;Data filter: No filter<BR>&nbsp;Data validator: foaf_dummy_constraints.spin.ttl</pre>
+	With that "dummy" validator, some capabilities of constraints checking are shown. The import will fail and the violated constraints are displayed to the user.
 <p>
 	<span style="text-decoration: underline;"><b>More information</b></span>
 	<BR>

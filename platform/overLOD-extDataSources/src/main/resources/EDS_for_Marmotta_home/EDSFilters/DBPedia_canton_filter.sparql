@@ -1,0 +1,16 @@
+prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+prefix dbpedia-onto: <http://dbpedia.org/ontology/>
+# WARNING should be used on a single DBPedia resource
+CONSTRUCT 
+{
+  ?s a dbpedia-owl:Place;
+  dbpedia-onto:elevation ?elevation;
+  rdfs:label ?labelFr, ?labelEn;
+}
+WHERE {
+  ?s a dbpedia-owl:Place;
+  dbpedia-onto:elevation ?elevation;
+  rdfs:label ?labelFr, ?labelEn;
+  Filter(lang(?labelFr) = "fr") 
+  Filter(lang(?labelEn) = "en") 
+}

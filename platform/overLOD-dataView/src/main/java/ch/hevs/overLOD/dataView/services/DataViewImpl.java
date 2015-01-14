@@ -49,6 +49,9 @@ import ch.hevs.overLOD.dataView.exceptions.DataViewException;
  * 
  * For more information about the overriden methods, see "DataView"
  * See DataViewWebService comment for a general introduction to the EDS module
+ * 
+ * The module saves the DataViews as .sparql files in %Marmotta-home%/dataViews
+ * 	The initialize() method calls initializeMarmottaHome() to ensure that the folder exists, and create it if necessary
  *
  * @author Fabian Cretton, HES-SO OverLOD surfer project
  * http://www.hevs.ch/fr/rad-instituts/institut-informatique-de-gestion/projets/overlod-surfer-6349
@@ -76,17 +79,22 @@ public class DataViewImpl implements DataView {
 
     	log.debug("DataViewImpl initialize() - make sure the dataViews folder does exist: " + dataViewFolder) ;
 
+    	initializeMarmottaHome() ;
+        
+        // finally add a separator for further operations
+        dataViewFolder += File.separator ;
+        
+        readConfiguration() ;
+    }
+    
+    private void initializeMarmottaHome()
+    {
         File folder = new File(dataViewFolder);
         if (!folder.exists())
         {
 				log.debug("dataViews folder don't exist in Marmotta-home, it will be created now.");
 				folder.mkdir() ;
         }
-        
-        // finally add a separator for further operations
-        dataViewFolder += File.separator ;
-        
-        readConfiguration() ;
     }
     
     public void readConfiguration()

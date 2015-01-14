@@ -25,6 +25,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.StringWriter;
 import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -98,14 +100,18 @@ import ch.hevs.overLOD.extDataSources.exceptions.ExtDataSourcesException;
 /**
  * Default Implementation of {@link ExtDataSources}
  * 
+ * For more information about the overriden methods, see "ExtDataSources"
+ * See ExtDataSourcesWebService comment for a general introduction to the EDS module
+ * 
+ * The module needs works with files in %Marmotta-home%/EDS
+ * 	The initialize() method calls initializeMarmottaHome() to ensure that the folder and files exists
+ *  if not, folders are created and files are copied from the jar's content: src/main/resource
+ *
  * Two different information are handled for one EDS:
  * - the parameters for that EDS
  * 		The list of External Data Sources parameters (EDSParams) is read and written to a .json file in: 
  * 		configurationService.getHome() + "/EDS/EDSParamsList.json"
  * - the content of the data, loaded in a standard Marmotta's context
- * 
- * For more information about the overriden methods, see "ExtDataSources"
- * See ExtDataSourcesWebService comment for a general introduction to the EDS module
  * 
  * @author Fabian Cretton, HES-SO OverLOD surfer project
  * http://www.hevs.ch/fr/rad-instituts/institut-informatique-de-gestion/projets/overlod-surfer-6349
@@ -128,8 +134,9 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 	String EDSParamsListFile = null;
 	String spinTemplateFile = null;
 	String spinConstraintsFolder = null;
+	String spinTemplatesFolder = null ;
 	String EDSFiltersFolder = null;
-
+	
 	Model modelSpinTemplates = null;
 
     // From the module configuration
@@ -142,9 +149,19 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 
 		// file/folder path initialization
 		marmottaHomeFolder = configurationService.getHome();
-		EDSParamsListFile = marmottaHomeFolder + "\\EDS\\EDSParamsList.json";
+		EDSParamsListFile = marmottaHomeFolder + File.separator + "EDS"+ File.separator +"EDSParamsList.json";
+		spinConstraintsFolder = marmottaHomeFolder + File.separator + "EDS"+ File.separator +"SPIN"+ File.separator +"Constraints" + File.separator;
+		EDSFiltersFolder = marmottaHomeFolder + File.separator + "EDS"+ File.separator +"EDSFilters" + File.separator;
+		spinTemplatesFolder = marmottaHomeFolder + File.separator + "EDS"+ File.separator +"SPIN"+ File.separator +"Templates" + File.separator ;
+
+		/*
+		EDSParamsListFile = marmottaHomeFolder + File.separator + "\\EDS\\EDSParamsList.json";
 		spinConstraintsFolder = marmottaHomeFolder + "\\EDS\\SPIN\\Constraints\\";
 		EDSFiltersFolder = marmottaHomeFolder + "\\EDS\\EDSFilters\\";
+		spinTemplatesFolder = marmottaHomeFolder + "\\EDS\\SPIN\\Templates\\" ;
+		 */
+		
+    	initializeMarmottaHome() ;
 
 		// Initialize SPIN system functions and templates
 		SPINModuleRegistry.get().init();
@@ -156,6 +173,99 @@ public class ExtDataSourcesImpl implements ExtDataSources {
 		}
 
 		readConfiguration() ;
+    }
+    
+	/***
+	 * Initialize MarmottaHome for the EDS modules:
+	 * create the EDS folders and subfolders
+	 * copy files from src/main/resource to those folders
+	 * 
+	 * No Exception/Message will be sent back to the client if this method fails, only error logs are filled
+	 * But nice formed Message will be sent when the module tries to access the files that are supposed to be there
+	 */
+    private void initializeMarmottaHome()
+    {
+    	// The folders:
+    	//   %marmotta-home%/EDS
+    	//   %marmotta-home%/EDS/EDSFilters
+    	//   %marmotta-home%/EDS/SPIN
+    	//   %marmotta-home%/EDS/SPIN/Constraints
+    	//   %marmotta-home%/EDS/SPIN/Templates
+    	String marmottaHomeEDSFolder = configurationService.getHome() + File.separator + "EDS" ;
+    	
+    	if (ensureFolderExists(marmottaHomeEDSFolder ))
+    		return ; // if the folder exists, assume that MarmottaHome is ready for the module
+    	
+    	ensureFolderExists(marmottaHomeEDSFolder + File.separator + "EDSFilters") ;
+    	ensureFolderExists(marmottaHomeEDSFolder + File.separator + "SPIN") ;
+    	ensureFolderExists(marmottaHomeEDSFolder + File.separator + "SPIN"+ File.separator + "Constraints") ;
+    	ensureFolderExists(marmottaHomeEDSFolder + File.separator + "SPIN"+ File.separator + "Templates") ;
+    	
+    	// Copy files
+    	// rem: a copy folder would have been easier, didn't find a simple solution with the resources
+    	log.debug("EDS Initialization - Copy files from resource to %Marmotta-home%");
+    	try {
+    		// EDSFilters
+    		InputStream resourceIS = getClass().getResourceAsStream("/EDS_for_Marmotta_home/EDSFilters/DBPedia_canton_filter.sparql") ;
+    		File destFile = new File(EDSFiltersFolder + "DBPedia_canton_filter.sparql") ;
+			Files.copy(resourceIS, destFile.toPath());
+			resourceIS.close();
+			
+    		resourceIS = getClass().getResourceAsStream("/EDS_for_Marmotta_home/EDSFilters/DBPedia_municipality_filter.sparql") ;
+    		destFile = new File(EDSFiltersFolder + "DBPedia_municipality_filter.sparql") ;
+			Files.copy(resourceIS, destFile.toPath());
+			resourceIS.close();
+
+    		resourceIS = getClass().getResourceAsStream("/EDS_for_Marmotta_home/EDSFilters/geoNames_about_nameFr_filter.sparql") ;
+    		destFile = new File(EDSFiltersFolder + "geoNames_about_nameFr_filter.sparql") ;
+			Files.copy(resourceIS, destFile.toPath());
+			resourceIS.close();
+			
+    		resourceIS = getClass().getResourceAsStream("/EDS_for_Marmotta_home/EDSFilters/geoNames_about_nameFrEnDe_filter.sparql") ;
+    		destFile = new File(EDSFiltersFolder + "geoNames_about_nameFrEnDe_filter.sparql") ;
+			Files.copy(resourceIS, destFile.toPath());
+			resourceIS.close();
+			
+			// SPIN Constraints
+    		resourceIS = getClass().getResourceAsStream("/EDS_for_Marmotta_home/SPIN/Constraints/DBPedia_municipality_constraints.spin.ttl") ;
+    		destFile = new File(spinConstraintsFolder + "DBPedia_municipality_constraints.spin.ttl") ;
+			Files.copy(resourceIS, destFile.toPath());
+			resourceIS.close();
+			
+    		resourceIS = getClass().getResourceAsStream("/EDS_for_Marmotta_home/SPIN/Constraints/foaf_dummy_constraints.spin.ttl") ;
+    		destFile = new File(spinConstraintsFolder + "foaf_dummy_constraints.spin.ttl") ;
+			Files.copy(resourceIS, destFile.toPath());
+			resourceIS.close();
+			
+			// SPIN Template
+    		resourceIS = getClass().getResourceAsStream("/EDS_for_Marmotta_home/SPIN/Templates/OSLC_ResourceShapes_Constraints.spin.ttl") ;
+    		destFile = new File(spinTemplatesFolder + "OSLC_ResourceShapes_Constraints.spin.ttl") ;
+			Files.copy(resourceIS, destFile.toPath());
+			resourceIS.close();
+			
+		} catch (Exception e) {
+	    	log.debug("EDS Initialization - Error copying resource file to %Marmotta-home%: " + e.getMessage());
+			
+		}
+    }
+    
+    /***
+     * Ensure that a folder exists, if not then create it
+     * 
+     * @param folderPath
+     * @return true if the folder exists already, false if it had to be created
+     */
+    public boolean ensureFolderExists(String folderPath)
+    {
+        File folder = new File(folderPath);
+        if (!folder.exists())
+        {
+				log.debug("Create Marmotta-home subfolders for EDS: " + folderPath);
+				folder.mkdir() ;
+				return false ;
+        }
+        
+        return true ;
     }
     
     /**
@@ -176,7 +286,7 @@ public class ExtDataSourcesImpl implements ExtDataSources {
     	if (spinTemplateFileReload || spinTemplateFileName == null || !newSpinTemplateFileName.equals(spinTemplateFileName))
     	{
         	spinTemplateFileName = newSpinTemplateFileName ;
-        	spinTemplateFile = marmottaHomeFolder + "\\EDS\\SPIN\\Templates\\" + newSpinTemplateFileName ;
+        	spinTemplateFile = spinTemplatesFolder + newSpinTemplateFileName ;
 
     		try {
     			loadModelSpinTemplatesFromDisk();
