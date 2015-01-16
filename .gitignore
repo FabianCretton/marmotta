@@ -1,6 +1,5 @@
 *~
 *.class
-*.jar
 *.war
 *.ipr
 *.iws
